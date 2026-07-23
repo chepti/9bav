@@ -296,7 +296,26 @@
 
 .info-col { padding: 14px; }
 .section-body { padding: 6px 6px 4px; line-height: 1.7; color: var(--ink-700); }
-.section-body p { margin-top: 0; }
+.section-body p { margin-top: 0; white-space: pre-wrap; }
+
+/* settlement-level timeline (state of the settlement over time) */
+.info-timeline { position: relative; margin-top: 12px; padding-inline-start: 20px; }
+.info-timeline::before {
+  content: ''; position: absolute; top: 4px; bottom: 4px; inset-inline-start: 4px;
+  width: 2px; background: linear-gradient(var(--amber-500), var(--sand-300));
+}
+.info-entry { position: relative; margin-bottom: 16px; }
+.info-entry:last-child { margin-bottom: 4px; }
+.info-dot {
+  position: absolute; inset-inline-start: -20px; top: 5px;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--orange-500); border: 3px solid var(--sand-50);
+  box-shadow: 0 0 0 2px var(--amber-400);
+}
+.info-time { margin-bottom: 6px; }
+.info-entry p { margin: 0; white-space: pre-wrap; }
+.entry-edit { padding: 10px; background: var(--sand-50); }
+.entry-edit .icon-btn:disabled { opacity: 0.35; cursor: default; }
 
 .closeup-head { margin-bottom: 10px; }
 .closeup-head h3 { margin: 0; }

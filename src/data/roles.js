@@ -21,22 +21,14 @@ function notify() {
   listeners.forEach((l) => l())
 }
 
-export function useRoles() {
-  return useSyncExternalStore(
-    (l) => {
-      listeners.add(l)
-      return () => listeners.delete(l)
-    },
-    () => roles,
-  )
-}
-
-export function emailKey(email) {
-  return String(email || '').trim().toLowerCase()
-}
-
-if (FB) {
-  onSnapshot(
+// The roles list is readable only by signed-in users (per security rules), and
+// is only needed inside the moderator admin panel. So we attach the Firestore
+// listener lazily — on the first useRoles() subscriber — and detach when the
+// last one unmounts. This avoids permission-denied errors for guests.
+let unsub = null
+function ensureSub() {
+  if (!FB || unsub) return
+  unsub = onSnapshot(
     collection(db, COL),
     (snap) => {
       roles = snap.docs.map((d) => ({ email: d.id, ...d.data() }))
@@ -45,6 +37,30 @@ if (FB) {
     },
     (err) => console.error('[gk] roles snapshot error', err),
   )
+}
+function stopSub() {
+  if (unsub) {
+    unsub()
+    unsub = null
+  }
+}
+
+export function useRoles() {
+  return useSyncExternalStore(
+    (l) => {
+      listeners.add(l)
+      ensureSub()
+      return () => {
+        listeners.delete(l)
+        if (listeners.size === 0) stopSub()
+      }
+    },
+    () => roles,
+  )
+}
+
+export function emailKey(email) {
+  return String(email || '').trim().toLowerCase()
 }
 
 export function addRole({ email, role, settlementId, settlementName, addedBy }) {

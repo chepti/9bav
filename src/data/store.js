@@ -173,6 +173,24 @@ export function setInfoSection(settlementId, key, body) {
   })
 }
 
+// Full update of an info section: an intro paragraph plus a chronological list
+// of { id, timeLabel, body } entries shown as a settlement-level timeline.
+export function setInfoSectionFull(settlementId, key, { body, entries }) {
+  mutateSettlement(settlementId, (s) => {
+    if (!Array.isArray(s.info)) s.info = []
+    let sec = s.info.find((i) => i.key === key)
+    if (!sec) {
+      sec = { key, body: '', entries: [], media: [] }
+      s.info.push(sec)
+    }
+    sec.body = body || ''
+    sec.entries = (entries || [])
+      .filter((e) => (e.timeLabel && e.timeLabel.trim()) || (e.body && e.body.trim()))
+      .map((e) => ({ id: e.id || uid('ie'), timeLabel: (e.timeLabel || '').trim(), body: (e.body || '').trim() }))
+    return s
+  })
+}
+
 export function addPoi(settlementId, { title, lat, lng, authorName }) {
   const poiId = uid('poi')
   mutateSettlement(settlementId, (s) => {

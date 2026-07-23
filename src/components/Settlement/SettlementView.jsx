@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { getSettlement, setInfoSection, updateSettlementMeta, addPoi, movePoi, deletePoi, deleteSettlement, addArea, deleteArea } from '../../data/store.js'
+import { getSettlement, setInfoSection, setInfoSectionFull, updateSettlementMeta, addPoi, movePoi, deletePoi, deleteSettlement, addArea, deleteArea } from '../../data/store.js'
 import { useStore } from '../../data/store.js'
 import { useSession, canEdit, canModerate } from '../../data/session.js'
-import { SECTION_ICONS, IconPin, IconEdit, IconTrash } from '../ui/Icons.jsx'
+import { SECTION_ICONS, IconPin, IconEdit, IconTrash, IconPlus, IconClock } from '../ui/Icons.jsx'
 import { AREA_CATEGORIES, AREA_COLOR, AREA_LABEL } from '../../data/categories.js'
 import { imageSrc } from '../../data/media.js'
 import { uploadToDrive, isDriveConfigured } from '../../data/drive.js'
@@ -121,7 +121,7 @@ export default function SettlementView() {
               )
             })}
           </div>
-          <SectionBody key={tab} settlementId={s.id} sectionKey={tab} body={section?.body || ''} canEdit={mod} />
+          <SectionBody key={tab} settlementId={s.id} sectionKey={tab} section={section} canEdit={mod} />
         </div>
 
         <div className="closeup-col">
@@ -239,31 +239,106 @@ export default function SettlementView() {
   )
 }
 
-function SectionBody({ settlementId, sectionKey, body, canEdit }) {
+function SectionBody({ settlementId, sectionKey, section, canEdit }) {
+  const body = section?.body || ''
+  const entries = section?.entries || []
   const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(body)
-
-  function save() {
-    setInfoSection(settlementId, sectionKey, draft)
-    setEditing(false)
-  }
 
   if (editing) {
     return (
-      <div className="stack gap-8 section-body">
-        <textarea className="field" rows={7} value={draft} onChange={(e) => setDraft(e.target.value)} autoFocus />
-        <div className="row gap-8" style={{ justifyContent: 'flex-end' }}>
-          <button className="btn btn-soft" onClick={() => { setDraft(body); setEditing(false) }}>ביטול</button>
-          <button className="btn btn-primary" onClick={save}>שמירה</button>
-        </div>
-      </div>
+      <SectionEditor
+        settlementId={settlementId}
+        sectionKey={sectionKey}
+        initialBody={body}
+        initialEntries={entries}
+        onDone={() => setEditing(false)}
+      />
     )
   }
 
+  const nothing = !body && entries.length === 0
+
   return (
     <div className="section-body">
-      {body ? <p>{body}</p> : <p className="muted">אין עדיין מידע בקטגוריה זו.</p>}
-      {canEdit && <button className="pill ghost sm" onClick={() => setEditing(true)}><IconEdit width={13} height={13} /> עריכה</button>}
+      {body && <p>{body}</p>}
+      {nothing && <p className="muted">אין עדיין מידע בקטגוריה זו.</p>}
+
+      {entries.length > 0 && (
+        <div className="info-timeline">
+          {entries.map((e, i) => (
+            <motion.div
+              key={e.id}
+              className="info-entry"
+              initial={{ opacity: 0, y: 8 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-40px' }}
+              transition={{ delay: Math.min(i * 0.08, 0.4), duration: 0.35 }}
+            >
+              <span className="info-dot" />
+              {e.timeLabel && <span className="pill sm is-active info-time"><IconClock width={12} height={12} /> {e.timeLabel}</span>}
+              {e.body && <p>{e.body}</p>}
+            </motion.div>
+          ))}
+        </div>
+      )}
+
+      {canEdit && (
+        <button className="pill ghost sm" style={{ marginTop: 10 }} onClick={() => setEditing(true)}>
+          <IconEdit width={13} height={13} /> עריכה
+        </button>
+      )}
+    </div>
+  )
+}
+
+function SectionEditor({ settlementId, sectionKey, initialBody, initialEntries, onDone }) {
+  const [body, setBody] = useState(initialBody)
+  const [entries, setEntries] = useState(() => initialEntries.map((e) => ({ ...e })))
+
+  const addEntry = () => setEntries((es) => [...es, { id: `new-${es.length}-${Math.random().toString(36).slice(2, 7)}`, timeLabel: '', body: '' }])
+  const setEntry = (i, k, v) => setEntries((es) => es.map((e, j) => (j === i ? { ...e, [k]: v } : e)))
+  const removeEntry = (i) => setEntries((es) => es.filter((_, j) => j !== i))
+  const move = (i, dir) => setEntries((es) => {
+    const j = i + dir
+    if (j < 0 || j >= es.length) return es
+    const copy = [...es]
+    ;[copy[i], copy[j]] = [copy[j], copy[i]]
+    return copy
+  })
+
+  function save() {
+    setInfoSectionFull(settlementId, sectionKey, { body, entries })
+    onDone()
+  }
+
+  return (
+    <div className="stack gap-12 section-body">
+      <div>
+        <label className="lbl">תיאור כללי (רשות)</label>
+        <textarea className="field" rows={4} value={body} onChange={(e) => setBody(e.target.value)} placeholder="תיאור קצר של הקטגוריה" />
+      </div>
+
+      <div className="stack gap-8">
+        <label className="lbl">שלבים לאורך זמן (זמן + תיאור, מוצגים לפי הסדר)</label>
+        {entries.map((e, i) => (
+          <div key={e.id} className="entry-edit card">
+            <div className="row gap-6" style={{ marginBottom: 6 }}>
+              <input className="field" style={{ flex: '0 0 42%' }} value={e.timeLabel} onChange={(ev) => setEntry(i, 'timeLabel', ev.target.value)} placeholder="זמן (למשל: 2005, ערב המלחמה, 2025)" />
+              <span className="grow" />
+              <button className="icon-btn" title="למעלה" disabled={i === 0} onClick={() => move(i, -1)}>↑</button>
+              <button className="icon-btn" title="למטה" disabled={i === entries.length - 1} onClick={() => move(i, 1)}>↓</button>
+              <button className="icon-btn danger" title="הסרה" onClick={() => removeEntry(i)}><IconTrash width={14} height={14} /></button>
+            </div>
+            <textarea className="field" rows={2} value={e.body} onChange={(ev) => setEntry(i, 'body', ev.target.value)} placeholder="מה היה בשלב הזה" />
+          </div>
+        ))}
+        <button className="pill ghost sm" onClick={addEntry}><IconPlus width={13} height={13} /> הוספת שלב</button>
+      </div>
+
+      <div className="row gap-8" style={{ justifyContent: 'flex-end' }}>
+        <button className="btn btn-soft" onClick={onDone}>ביטול</button>
+        <button className="btn btn-primary" onClick={save}>שמירה</button>
+      </div>
     </div>
   )
 }
