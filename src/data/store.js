@@ -146,11 +146,14 @@ export function moveSettlement(id, lat, lng) {
   mutateSettlement(id, (s) => ({ ...s, lat, lng }))
 }
 
+// Points come in as [{x,y}, …] (percentages). Firestore forbids arrays of
+// arrays, so vertices are stored as objects — never [[x,y], …].
 export function addArea(settlementId, { category, points, label }) {
   const areaId = uid('area')
+  const clean = (points || []).map((p) => (Array.isArray(p) ? { x: p[0], y: p[1] } : { x: p.x, y: p.y }))
   mutateSettlement(settlementId, (s) => {
     if (!Array.isArray(s.areas)) s.areas = []
-    s.areas.push({ id: areaId, category, points, label: label || '' })
+    s.areas.push({ id: areaId, category, points: clean, label: label || '' })
     return s
   })
   return areaId
@@ -175,7 +178,8 @@ export function setInfoSection(settlementId, key, body) {
 
 // Full update of an info section: an intro paragraph plus a chronological list
 // of { id, timeLabel, body } entries shown as a settlement-level timeline.
-export function setInfoSectionFull(settlementId, key, { body, entries }) {
+// pendingReview marks an edit made by a non-moderator as awaiting approval.
+export function setInfoSectionFull(settlementId, key, { body, entries, pendingReview }) {
   mutateSettlement(settlementId, (s) => {
     if (!Array.isArray(s.info)) s.info = []
     let sec = s.info.find((i) => i.key === key)
@@ -187,6 +191,16 @@ export function setInfoSectionFull(settlementId, key, { body, entries }) {
     sec.entries = (entries || [])
       .filter((e) => (e.timeLabel && e.timeLabel.trim()) || (e.body && e.body.trim()))
       .map((e) => ({ id: e.id || uid('ie'), timeLabel: (e.timeLabel || '').trim(), body: (e.body || '').trim() }))
+    sec.pendingReview = !!pendingReview
+    return s
+  })
+}
+
+// A moderator clears the pending-review flag, approving a resident's edit.
+export function approveInfoSection(settlementId, key) {
+  mutateSettlement(settlementId, (s) => {
+    const sec = (s.info || []).find((i) => i.key === key)
+    if (sec) sec.pendingReview = false
     return s
   })
 }

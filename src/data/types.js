@@ -65,7 +65,7 @@
  * @typedef {Object} Area // a colored polygon marking where a function was located
  * @property {string} id
  * @property {'agriculture'|'education'|'community'|'commerce'|'general'} category
- * @property {[number,number][]} points // [[x%,y%], …] polygon vertices on the photo
+ * @property {{x:number,y:number}[]} points // vertices as % of the photo (Firestore forbids nested arrays)
  * @property {string} [label]           // optional free-text label
  */
 
