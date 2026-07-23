@@ -117,8 +117,8 @@ export default function MediaCard({
             <span>{heartCount || (key ? '' : 'לב')}</span>
           </button>
           <span className="grow" />
-          {canModerate && (
-            <button type="button" className="pill sm ghost danger" onClick={onDelete}><IconTrash width={13} height={13} /> מחיקה</button>
+          {showEdit && (
+            <button type="button" className="pill sm ghost danger" onClick={() => { if (confirm('למחוק את הפריט?')) onDelete?.() }}><IconTrash width={13} height={13} /> מחיקה</button>
           )}
         </div>
       </motion.div>
@@ -149,12 +149,14 @@ export default function MediaCard({
         item={item}
         settlementId={settlementId}
         poiId={poiId}
+        canDelete={showEdit}
+        onDelete={onDelete}
       />
     </>
   )
 }
 
-export function MediaEditModal({ open, onClose, item, settlementId, poiId }) {
+export function MediaEditModal({ open, onClose, item, settlementId, poiId, canDelete = false, onDelete }) {
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [dateGregorian, setDateGregorian] = useState('')
@@ -226,9 +228,14 @@ export function MediaEditModal({ open, onClose, item, settlementId, poiId }) {
           <label className="lbl">{item.type === 'text' ? 'הטקסט' : 'תיאור / כיתוב'}</label>
           <textarea className="field" rows={4} value={body} onChange={(e) => setBody(e.target.value)} />
         </div>
-        <div className="row" style={{ justifyContent: 'flex-end' }}>
-          <button className="btn btn-soft" onClick={onClose}>ביטול</button>
-          <button className="btn btn-primary" onClick={save}>שמירה</button>
+        <div className="row" style={{ justifyContent: 'space-between' }}>
+          {canDelete
+            ? <button className="btn btn-soft danger-btn" onClick={() => { if (confirm('למחוק את הפריט?')) { onDelete?.(); onClose() } }}><IconTrash width={15} height={15} /> מחיקה</button>
+            : <span />}
+          <div className="row gap-8">
+            <button className="btn btn-soft" onClick={onClose}>ביטול</button>
+            <button className="btn btn-primary" onClick={save}>שמירה</button>
+          </div>
         </div>
       </div>
     </Modal>

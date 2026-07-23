@@ -139,9 +139,6 @@ export default function MediaUploader({ settlementId, poiId, phase, onDone, init
       {phase === 'during' && lockWhen && (
         <div className="when-locked">
           <span className="pill sm is-active">{lockedLabel || 'רגע נבחר'}</span>
-          <p className="muted" style={{ fontSize: '0.8rem', margin: '6px 0 0' }}>
-            הפריט יתווסף לאותו רגע על המעגל (אותו תאריך ושעה).
-          </p>
         </div>
       )}
 
@@ -186,9 +183,6 @@ export default function MediaUploader({ settlementId, poiId, phase, onDone, init
             {youtubeUrl.trim() && !ytId && (
               <p style={{ color: '#d9534f', fontSize: '0.8rem', marginTop: 6 }}>לא זוהה קישור יוטיוב תקין</p>
             )}
-            {ytId && (
-              <p className="muted" style={{ fontSize: '0.8rem', marginTop: 6 }}>הקישור תקין — יוצג כהטמעה בדף</p>
-            )}
           </div>
           <div>
             <label className="lbl">או העלאת קובץ וידאו</label>
@@ -218,9 +212,6 @@ export default function MediaUploader({ settlementId, poiId, phase, onDone, init
           {busy ? 'מעלה…' : 'הוספה'}
         </button>
       </div>
-      <p className="muted" style={{ fontSize: '0.78rem' }}>
-        הפריט יפורסם מיד. מודרטור יכול למחוק אותו אם צריך.
-      </p>
     </div>
   )
 }
