@@ -51,6 +51,8 @@ export default function Home() {
       <RegionMap region={region} settlements={settlements} />
 
       <p className="map-hint muted">לחצו על נקודת יישוב כדי להיכנס אליו. מודרטורים יכולים לנעוץ יישוב חדש; תושבים מוסיפים נקודות עניין וסיפורים.</p>
+
+      <p className="home-credit muted">תודה לבן ציון מקלס על צילומי הלוויין והעדכון לשנת 2025</p>
     </div>
   )
 }
