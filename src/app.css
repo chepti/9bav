@@ -1006,6 +1006,15 @@
   border-color: var(--orange-600);
   color: #fff;
 }
+.clock-media-add {
+  border-style: dashed;
+  color: var(--orange-600);
+  border-color: var(--amber-500);
+}
+.clock-media-add:hover {
+  background: var(--sand-100);
+  border-color: var(--orange-500);
+}
 .clock-nav {
   width: 40px; height: 40px; border-radius: 50%;
   border: 1px solid var(--sand-300);

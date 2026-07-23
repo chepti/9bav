@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { addMedia } from '../../data/store.js'
 import { useSession, authorKey } from '../../data/session.js'
 import { uploadToDrive, isDriveConfigured } from '../../data/drive.js'
 import { youtubeIdFromUrl } from '../../data/media.js'
-import { buildWhenFields, DEFAULT_EXPULSION_DATE, gregorianToHebrew } from '../../data/when.js'
+import { buildWhenFields, DEFAULT_EXPULSION_DATE, gregorianToHebrew, formatWhenDisplay } from '../../data/when.js'
 import { MEDIA_ICONS } from '../ui/Icons.jsx'
 import WhenFields from './WhenFields.jsx'
 
@@ -23,7 +23,11 @@ function fileToDataUrl(file) {
   })
 }
 
-export default function MediaUploader({ settlementId, poiId, phase, onDone }) {
+/**
+ * @param {object} [initialWhen] — prefill date/time (e.g. add media to an existing moment)
+ * @param {boolean} [lockWhen] — keep the moment's when fixed (don't show editors)
+ */
+export default function MediaUploader({ settlementId, poiId, phase, onDone, initialWhen = null, lockWhen = false }) {
   const session = useSession()
   const [type, setType] = useState('text')
   const [title, setTitle] = useState('')
@@ -36,6 +40,17 @@ export default function MediaUploader({ settlementId, poiId, phase, onDone }) {
   const [approximate, setApproximate] = useState(false)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+
+  useEffect(() => {
+    if (!initialWhen) return
+    setDateGregorian(initialWhen.dateGregorian || '')
+    setDateHebrew(
+      initialWhen.dateHebrew
+      || (initialWhen.dateGregorian ? gregorianToHebrew(initialWhen.dateGregorian) : ''),
+    )
+    setTimeLabel(initialWhen.timeLabel || '')
+    setApproximate(!!initialWhen.approximate)
+  }, [initialWhen])
 
   const ytId = youtubeIdFromUrl(youtubeUrl)
 
@@ -101,6 +116,13 @@ export default function MediaUploader({ settlementId, poiId, phase, onDone }) {
         : !!file) &&
     (phase !== 'during' || hasWhen)
 
+  const lockedLabel = formatWhenDisplay({
+    dateGregorian,
+    dateHebrew,
+    timeLabel,
+    approximate,
+  })
+
   return (
     <div className="stack gap-16">
       <div className="row wrap gap-6">
@@ -114,7 +136,16 @@ export default function MediaUploader({ settlementId, poiId, phase, onDone }) {
         })}
       </div>
 
-      {phase === 'during' && (
+      {phase === 'during' && lockWhen && (
+        <div className="when-locked">
+          <span className="pill sm is-active">{lockedLabel || 'רגע נבחר'}</span>
+          <p className="muted" style={{ fontSize: '0.8rem', margin: '6px 0 0' }}>
+            הפריט יתווסף לאותו רגע על המעגל (אותו תאריך ושעה).
+          </p>
+        </div>
+      )}
+
+      {phase === 'during' && !lockWhen && (
         <WhenFields
           dateGregorian={dateGregorian}
           dateHebrew={dateHebrew}

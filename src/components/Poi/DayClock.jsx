@@ -1,10 +1,10 @@
 import { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { MEDIA_ICONS, IconChevron, IconChevronLeft, IconTrash, IconHeart, IconHeartFilled, IconEdit } from '../ui/Icons.jsx'
+import { MEDIA_ICONS, IconChevron, IconChevronLeft, IconTrash, IconHeart, IconHeartFilled, IconEdit, IconPlus } from '../ui/Icons.jsx'
 import { imageSrc, videoEmbed } from '../../data/media.js'
 import MediaLightbox, { canOpenLightbox } from '../Media/MediaLightbox.jsx'
 import { toggleMediaHeart, deleteMedia } from '../../data/store.js'
-import { useSession, canModerate, canEditOwned } from '../../data/session.js'
+import { useSession, canModerate, canEditOwned, canEdit } from '../../data/session.js'
 import { groupMomentsEven, itemSortMs } from '../../data/when.js'
 
 // Kan 7.10–style dial: moments spaced evenly by count (not real duration),
@@ -39,10 +39,11 @@ function summaryText(moment) {
   return first.title || first.body || ''
 }
 
-export default function DayClock({ items, settlementId, poiId, onEditItem }) {
+export default function DayClock({ items, settlementId, poiId, onEditItem, onAddToMoment }) {
   const session = useSession()
   const key = heartKey(session)
   const mod = canModerate(session.role)
+  const editor = canEdit(session.role)
   const moments = useMemo(() => groupMomentsEven(items), [items])
 
   const [mi, setMi] = useState(0) // moment index
@@ -77,6 +78,18 @@ export default function DayClock({ items, settlementId, poiId, onEditItem }) {
 
   function selectMoment(i) {
     setMi(i)
+  }
+
+  function requestAddToMoment() {
+    if (!moment || !onAddToMoment) return
+    const sample = moment.items[0] || {}
+    onAddToMoment({
+      dateGregorian: sample.dateGregorian || '',
+      dateHebrew: sample.dateHebrew || '',
+      timeLabel: sample.timeLabel || '',
+      approximate: !!sample.approximate,
+      label: moment.label,
+    })
   }
 
   function heart() {
@@ -149,24 +162,32 @@ export default function DayClock({ items, settlementId, poiId, onEditItem }) {
             <div className="clock-center">
               <div className="clock-time">{moment.label}</div>
               <div className="clock-title">{summaryText(moment)}</div>
-              {moment.items.length > 1 && (
-                <div className="clock-media-dots row gap-6" style={{ justifyContent: 'center', marginTop: 10 }}>
-                  {moment.items.map((it, idx) => {
-                    const Icon = MEDIA_ICONS[it.type] || MEDIA_ICONS.text
-                    return (
-                      <button
-                        key={it.id}
-                        type="button"
-                        className={`clock-media-dot ${idx === si ? 'is-active' : ''}`}
-                        title={it.title || it.type}
-                        onClick={() => setSi(idx)}
-                      >
-                        <Icon width={16} height={16} />
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
+              <div className="clock-media-dots row gap-6" style={{ justifyContent: 'center', marginTop: 10 }}>
+                {moment.items.map((it, idx) => {
+                  const Icon = MEDIA_ICONS[it.type] || MEDIA_ICONS.text
+                  return (
+                    <button
+                      key={it.id}
+                      type="button"
+                      className={`clock-media-dot ${idx === si ? 'is-active' : ''}`}
+                      title={it.title || it.type}
+                      onClick={() => setSi(idx)}
+                    >
+                      <Icon width={16} height={16} />
+                    </button>
+                  )
+                })}
+                {editor && onAddToMoment && (
+                  <button
+                    type="button"
+                    className="clock-media-dot clock-media-add"
+                    title="הוספת מדיה לרגע זה"
+                    onClick={requestAddToMoment}
+                  >
+                    <IconPlus width={16} height={16} />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -248,6 +269,12 @@ export default function DayClock({ items, settlementId, poiId, onEditItem }) {
                     <span className="muted" style={{ fontSize: '0.78rem' }}>
                       פריט {si + 1} מתוך {moment.items.length} ברגע זה
                     </span>
+                  )}
+                  <span className="grow" />
+                  {editor && onAddToMoment && (
+                    <button type="button" className="pill sm ghost" onClick={requestAddToMoment}>
+                      <IconPlus width={13} height={13} /> מדיה לרגע
+                    </button>
                   )}
                 </div>
               </motion.div>

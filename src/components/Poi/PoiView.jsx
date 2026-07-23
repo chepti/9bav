@@ -29,6 +29,20 @@ export default function PoiView() {
   const [afterOpen, setAfterOpen] = useState(false)
   const [editAfter, setEditAfter] = useState(null) // entry being edited
   const [editMedia, setEditMedia] = useState(null)
+  const [uploadWhen, setUploadWhen] = useState(null) // null = new moment; object = add to existing
+
+  function openNewMoment() {
+    setUploadWhen(null)
+    setUploadOpen(true)
+  }
+  function openAddToMoment(when) {
+    setUploadWhen(when)
+    setUploadOpen(true)
+  }
+  function closeUpload() {
+    setUploadOpen(false)
+    setUploadWhen(null)
+  }
 
   if (!s || !poi) return <div className="page-pad">הנקודה לא נמצאה. <button className="pill ghost" onClick={() => navigate('/')}>למפה</button></div>
 
@@ -55,18 +69,19 @@ export default function PoiView() {
       <div className="phase-panel-wrap">
         <motion.div key={phase} className="phase-panel" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28 }}>
           {phase === 'before' && (
-            <PhaseBlock title="לפני הגירוש" editor={editor} onAdd={() => setUploadOpen(true)}>
+            <PhaseBlock title="לפני הגירוש" editor={editor} onAdd={() => { setUploadWhen(null); setUploadOpen(true) }}>
               <MediaGrid items={poi.before || []} mod={mod} session={session} onDelete={(m) => deleteMedia(s.id, poi.id, m)} settlementId={s.id} poiId={poi.id} empty="עדיין אין תיעוד של התקופה שלפני הגירוש." />
             </PhaseBlock>
           )}
 
           {phase === 'during' && (
-            <PhaseBlock title="מסביב לשעון — סביב הגירוש" editor={editor} onAdd={() => setUploadOpen(true)} addLabel="הוספת רגע">
+            <PhaseBlock title="מסביב לשעון — סביב הגירוש" editor={editor} onAdd={openNewMoment} addLabel="הוספת רגע">
               <DayClock
                 items={poi.during || []}
                 settlementId={s.id}
                 poiId={poi.id}
                 onEditItem={setEditMedia}
+                onAddToMoment={openAddToMoment}
               />
             </PhaseBlock>
           )}
@@ -86,8 +101,25 @@ export default function PoiView() {
         </motion.div>
       </div>
 
-      <Modal open={uploadOpen} onClose={() => setUploadOpen(false)} title={phase === 'during' ? 'הוספת רגע סביב הגירוש' : 'הוספת מדיה'} wide>
-        <MediaUploader settlementId={s.id} poiId={poi.id} phase={phase} onDone={() => setUploadOpen(false)} />
+      <Modal
+        open={uploadOpen}
+        onClose={closeUpload}
+        title={
+          phase === 'during'
+            ? (uploadWhen ? `מדיה נוספת לרגע ${uploadWhen.label || ''}`.trim() : 'הוספת רגע סביב הגירוש')
+            : 'הוספת מדיה'
+        }
+        wide
+      >
+        <MediaUploader
+          key={uploadWhen ? `m-${uploadWhen.label}-${uploadWhen.timeLabel}` : 'new'}
+          settlementId={s.id}
+          poiId={poi.id}
+          phase={phase}
+          initialWhen={uploadWhen}
+          lockWhen={phase === 'during' && !!uploadWhen}
+          onDone={closeUpload}
+        />
       </Modal>
 
       <AfterEntryModal

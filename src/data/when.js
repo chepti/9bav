@@ -94,13 +94,9 @@ export function groupMomentsEven(items) {
 
   const map = new Map()
   for (const it of timed) {
-    const key = [
-      it.dateGregorian || '',
-      (it.timeLabel || '').trim(),
-      it.approximate ? '~' : '',
-      // bucket to the minute so near-identical whenMs still merge
-      Math.round(it.sortMs / 60000),
-    ].join('|')
+    // Group by absolute minute (+ approximate flag) so legacy HH:MM-only
+    // items merge with new items that also store dateGregorian.
+    const key = `${Math.round(it.sortMs / 60000)}|${it.approximate ? '~' : ''}`
     if (!map.has(key)) {
       map.set(key, {
         key,
