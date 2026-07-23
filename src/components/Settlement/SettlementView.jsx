@@ -7,6 +7,7 @@ import { useSession, canEdit, canModerate } from '../../data/session.js'
 import { SECTION_ICONS, IconPin, IconEdit, IconTrash, IconPlus, IconClock } from '../ui/Icons.jsx'
 import { AREA_CATEGORIES, AREA_COLOR, AREA_LABEL } from '../../data/categories.js'
 import { imageSrc } from '../../data/media.js'
+import { sortEntriesByYear } from '../../data/timeline.js'
 import { uploadToDrive, isDriveConfigured } from '../../data/drive.js'
 import Modal from '../ui/Modal.jsx'
 import Breadcrumbs from '../ui/Breadcrumbs.jsx'
@@ -243,7 +244,7 @@ export default function SettlementView() {
 
 function SectionBody({ settlementId, sectionKey, section, canEdit }) {
   const body = section?.body || ''
-  const entries = section?.entries || []
+  const entries = sortEntriesByYear(section?.entries || [])
   const [editing, setEditing] = useState(false)
 
   if (editing) {
@@ -252,7 +253,7 @@ function SectionBody({ settlementId, sectionKey, section, canEdit }) {
         settlementId={settlementId}
         sectionKey={sectionKey}
         initialBody={body}
-        initialEntries={entries}
+        initialEntries={section?.entries || []}
         onDone={() => setEditing(false)}
       />
     )
@@ -295,7 +296,7 @@ function SectionBody({ settlementId, sectionKey, section, canEdit }) {
 
 function SectionEditor({ settlementId, sectionKey, initialBody, initialEntries, onDone }) {
   const [body, setBody] = useState(initialBody)
-  const [entries, setEntries] = useState(() => initialEntries.map((e) => ({ ...e })))
+  const [entries, setEntries] = useState(() => sortEntriesByYear(initialEntries.map((e) => ({ ...e }))))
 
   const addEntry = () => setEntries((es) => [...es, { id: `new-${es.length}-${Math.random().toString(36).slice(2, 7)}`, timeLabel: '', body: '' }])
   const setEntry = (i, k, v) => setEntries((es) => es.map((e, j) => (j === i ? { ...e, [k]: v } : e)))
@@ -307,9 +308,15 @@ function SectionEditor({ settlementId, sectionKey, initialBody, initialEntries, 
     ;[copy[i], copy[j]] = [copy[j], copy[i]]
     return copy
   })
+  const resortByYear = () => setEntries((es) => sortEntriesByYear(es))
+
+  function onTimeBlur() {
+    // After typing a year (e.g. 2007), snap the row into chronological place.
+    setEntries((es) => sortEntriesByYear(es))
+  }
 
   function save() {
-    setInfoSectionFull(settlementId, sectionKey, { body, entries })
+    setInfoSectionFull(settlementId, sectionKey, { body, entries: sortEntriesByYear(entries) })
     onDone()
   }
 
@@ -321,11 +328,27 @@ function SectionEditor({ settlementId, sectionKey, initialBody, initialEntries, 
       </div>
 
       <div className="stack gap-8">
-        <label className="lbl">שלבים לאורך זמן (זמן + תיאור, מוצגים לפי הסדר)</label>
+        <div className="row wrap gap-8" style={{ alignItems: 'center' }}>
+          <label className="lbl" style={{ margin: 0 }}>שלבים לאורך זמן</label>
+          <span className="grow" />
+          <button type="button" className="pill ghost sm" onClick={resortByYear} title="ממיין לפי השנה בתווית הזמן">
+            סידור לפי שנים
+          </button>
+        </div>
+        <p className="muted" style={{ fontSize: '0.78rem', margin: 0 }}>
+          כשמזינים שנה (למשל 2007) השלב נכנס אוטומטית למקום הנכון על הציר. אפשר גם להזיז ידנית עם החיצים.
+        </p>
         {entries.map((e, i) => (
           <div key={e.id} className="entry-edit card">
             <div className="row gap-6" style={{ marginBottom: 6 }}>
-              <input className="field" style={{ flex: '0 0 42%' }} value={e.timeLabel} onChange={(ev) => setEntry(i, 'timeLabel', ev.target.value)} placeholder="זמן (למשל: 2005, ערב המלחמה, 2025)" />
+              <input
+                className="field"
+                style={{ flex: '0 0 42%' }}
+                value={e.timeLabel}
+                onChange={(ev) => setEntry(i, 'timeLabel', ev.target.value)}
+                onBlur={onTimeBlur}
+                placeholder="זמן (למשל: 2005, ערב המלחמה, 2025)"
+              />
               <span className="grow" />
               <button className="icon-btn" title="למעלה" disabled={i === 0} onClick={() => move(i, -1)}>↑</button>
               <button className="icon-btn" title="למטה" disabled={i === entries.length - 1} onClick={() => move(i, 1)}>↓</button>

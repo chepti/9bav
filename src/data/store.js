@@ -10,6 +10,7 @@
 import { useSyncExternalStore } from 'react'
 import { SETTLEMENTS as SEED } from './seed.js'
 import { isFirebaseConfigured, db } from './firebase.js'
+import { sortEntriesByYear } from './timeline.js'
 import { collection, doc, onSnapshot, setDoc, deleteDoc, runTransaction, writeBatch } from 'firebase/firestore'
 
 const FB = isFirebaseConfigured
@@ -188,9 +189,11 @@ export function setInfoSectionFull(settlementId, key, { body, entries }) {
       s.info.push(sec)
     }
     sec.body = body || ''
-    sec.entries = (entries || [])
-      .filter((e) => (e.timeLabel && e.timeLabel.trim()) || (e.body && e.body.trim()))
-      .map((e) => ({ id: e.id || uid('ie'), timeLabel: (e.timeLabel || '').trim(), body: (e.body || '').trim() }))
+    sec.entries = sortEntriesByYear(
+      (entries || [])
+        .filter((e) => (e.timeLabel && e.timeLabel.trim()) || (e.body && e.body.trim()))
+        .map((e) => ({ id: e.id || uid('ie'), timeLabel: (e.timeLabel || '').trim(), body: (e.body || '').trim() })),
+    )
     delete sec.pendingReview
     return s
   })
