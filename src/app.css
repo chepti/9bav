@@ -129,10 +129,8 @@
 .leaflet-host.is-pinning { cursor: crosshair; box-shadow: 0 0 0 3px var(--amber-400), var(--shadow-md); }
 .leaflet-host.is-pinning .leaflet-grab { cursor: crosshair; }
 
-/* warm the base tiles toward the amber/sand palette */
-.leaflet-host .leaflet-tile-pane {
-  filter: sepia(0.42) saturate(1.15) brightness(1.03) hue-rotate(-8deg);
-}
+/* original CARTO Voyager tile colors (no warm filter) — the orange pins carry
+   the palette. */
 
 /* Leaflet controls restyled to match */
 .leaflet-host .leaflet-bar {
