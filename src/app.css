@@ -395,6 +395,7 @@
 .image-map-canvas {
   position: relative;
   width: 100%;
+  min-height: 180px;
   border-radius: var(--radius-lg);
   overflow: hidden;
   box-shadow: var(--shadow-md);

@@ -90,6 +90,14 @@ export default function ImageMap({
     }
   }
 
+  function onImgError() {
+    if (canvasRef.current) {
+      canvasRef.current.style.aspectRatio = '4 / 3'
+      const r = canvasRef.current.getBoundingClientRect()
+      setSize({ w: r.width, h: r.height })
+    }
+  }
+
   function onPointerDown(e) {
     if (e.button != null && e.button !== 0) return
     // Pins / zoom controls handle their own clicks — do not capture the pointer.
@@ -152,7 +160,7 @@ export default function ImageMap({
         onPointerCancel={(e) => endDrag(e, false)}
       >
         <div className="image-map-world" ref={worldRef} style={{ transform: `translate(${t.x}px, ${t.y}px) scale(${t.s})` }}>
-          {active?.src && <img src={active.src} alt={`תצלום ${active.year}`} draggable={false} onLoad={onImgLoad} />}
+          {active?.src && <img src={active.src} alt={`תצלום ${active.year}`} draggable={false} onLoad={onImgLoad} onError={onImgError} />}
 
           <svg className="image-map-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
             {areas.map((a) =>

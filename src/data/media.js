@@ -27,19 +27,48 @@ export function youtubeIdFromUrl(url) {
   return null
 }
 
+/** Extract a Google Drive file id from common share / view / uc links. */
+export function driveIdFromUrl(url) {
+  if (!url || typeof url !== 'string') return null
+  const raw = url.trim()
+  // Bare id (Drive ids are typically 25–44 chars, URL-safe)
+  if (/^[\w-]{20,}$/.test(raw) && !raw.includes('/') && !raw.includes('.')) return raw
+  try {
+    const parsed = new URL(raw)
+    const host = parsed.hostname.replace(/^www\./, '').toLowerCase()
+    if (host === 'drive.google.com' || host === 'docs.google.com') {
+      const m = parsed.pathname.match(/\/(?:file\/d|uc|open|d)\/([\w-]{20,})/)
+      if (m) return m[1]
+      const id = parsed.searchParams.get('id')
+      if (id && /^[\w-]{20,}$/.test(id)) return id
+    }
+    if (host === 'lh3.googleusercontent.com') {
+      const m = parsed.pathname.match(/\/d\/([\w-]{20,})/)
+      if (m) return m[1]
+    }
+  } catch {
+    /* not a URL */
+  }
+  return null
+}
+
 export function imageSrc(item) {
-  if (item.driveId) return `https://lh3.googleusercontent.com/d/${item.driveId}`
-  return item.url || ''
+  const id = item?.driveId || driveIdFromUrl(item?.url)
+  if (id) return `https://lh3.googleusercontent.com/d/${id}`
+  return item?.url || ''
 }
 
 export function videoEmbed(item) {
   const yt = youtubeIdFromUrl(item?.url)
   if (yt) return `https://www.youtube.com/embed/${yt}`
-  if (item.driveId) return `https://drive.google.com/file/d/${item.driveId}/preview`
+  const id = item?.driveId || driveIdFromUrl(item?.url)
+  if (id) return `https://drive.google.com/file/d/${id}/preview`
   return null // data-URL videos use a plain <video src>
 }
 
 export function fileLink(item) {
   if (youtubeIdFromUrl(item?.url)) return item.url
-  return item.url || (item.driveId ? `https://drive.google.com/file/d/${item.driveId}/view` : '')
+  const id = item?.driveId || driveIdFromUrl(item?.url)
+  if (id) return `https://drive.google.com/file/d/${id}/view`
+  return item?.url || ''
 }

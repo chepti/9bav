@@ -6,7 +6,7 @@ import { useStore } from '../../data/store.js'
 import { useSession, canEdit, canModerate, authorKey } from '../../data/session.js'
 import { SECTION_ICONS, IconPin, IconEdit, IconTrash, IconPlus, IconClock } from '../ui/Icons.jsx'
 import { AREA_CATEGORIES, AREA_COLOR, AREA_LABEL } from '../../data/categories.js'
-import { imageSrc, youtubeIdFromUrl } from '../../data/media.js'
+import { imageSrc, youtubeIdFromUrl, driveIdFromUrl } from '../../data/media.js'
 import { sortEntriesByYear } from '../../data/timeline.js'
 import { uploadToDrive, isDriveConfigured } from '../../data/drive.js'
 import Modal from '../ui/Modal.jsx'
@@ -612,11 +612,17 @@ function EditMetaModal({ open, onClose, settlement }) {
 
   function save() {
     const layers = [0, 1]
-      .map((i) => ({
-        year: String(lval(i, 'year')).trim() || (i ? '2025' : '2005'),
-        url: String(lval(i, 'url')).trim() || undefined,
-        driveId: String(lval(i, 'driveId')).trim() || undefined,
-      }))
+      .map((i) => {
+        const url = String(lval(i, 'url')).trim() || undefined
+        let driveId = String(lval(i, 'driveId')).trim() || undefined
+        // Pasted Drive view/share links must become driveId or the map shows a broken strip
+        if (!driveId && url) driveId = driveIdFromUrl(url) || undefined
+        return {
+          year: String(lval(i, 'year')).trim() || (i ? '2025' : '2005'),
+          url,
+          driveId,
+        }
+      })
       .filter((l) => l.url || l.driveId)
     updateSettlementMeta(s.id, {
       tagline: val('tagline'),
