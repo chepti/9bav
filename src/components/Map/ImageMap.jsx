@@ -4,9 +4,10 @@ import { AREA_COLOR } from '../../data/categories.js'
 // The settlement-level "map" is a historical aerial photo, not a live web map.
 // Points of interest and area polygons are positioned as percentages (0..100)
 // of the image so they stay put when toggling between year layers that share
-// the same framing. The photo pans and zooms like a map (wheel / drag / buttons)
-// so dense settlements with many pins can be explored up close. Clicking (a tap
-// without a drag) in add/draw mode reports the point as a percentage.
+// the same framing. The photo pans and zooms like a map (wheel / drag / buttons).
+// Pins live in a separate overlay (not inside the scaled world) so they stay
+// sharp and clickable on desktop. Clicking (a tap without a drag) in add/draw
+// mode reports the point as a percentage.
 
 const MIN = 1
 const MAX = 8
@@ -28,8 +29,26 @@ export default function ImageMap({
   const worldRef = useRef(null)
   const drag = useRef(null)
   const [t, setT] = useState({ s: 1, x: 0, y: 0 })
+  const [size, setSize] = useState({ w: 0, h: 0 })
   const active = layers.find((l) => l.year === activeYear) || layers[0]
   const adding = pinMode || drawMode
+
+  useEffect(() => {
+    const el = canvasRef.current
+    if (!el) return
+    const measure = () => {
+      const r = el.getBoundingClientRect()
+      setSize({ w: r.width, h: r.height })
+    }
+    measure()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    ro?.observe(el)
+    window.addEventListener('resize', measure)
+    return () => {
+      ro?.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [active?.src])
 
   function clampT(nt) {
     const c = canvasRef.current?.getBoundingClientRect()
@@ -66,11 +85,15 @@ export default function ImageMap({
     const img = e.target
     if (img.naturalWidth && canvasRef.current) {
       canvasRef.current.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`
+      const r = canvasRef.current.getBoundingClientRect()
+      setSize({ w: r.width, h: r.height })
     }
   }
 
   function onPointerDown(e) {
     if (e.button != null && e.button !== 0) return
+    // Pins / zoom controls handle their own clicks — do not capture the pointer.
+    if (e.target.closest?.('.image-pin, .image-map-zoom')) return
     drag.current = { x: e.clientX, y: e.clientY, moved: false, id: e.pointerId }
     canvasRef.current?.setPointerCapture?.(e.pointerId)
   }
@@ -144,21 +167,37 @@ export default function ImageMap({
               <circle key={i} cx={px(p)} cy={py(p)} r="1" fill="#fff" stroke={AREA_COLOR[draftArea.category] || AREA_COLOR.general} strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
             ))}
           </svg>
+        </div>
 
+        {/* Pins outside the scaled world → sharp + receive clicks on desktop */}
+        <div className="image-map-pins" aria-hidden={adding || undefined}>
           {pois
             .filter((p) => p.x != null && p.y != null)
-            .map((p) => (
-              <button
-                key={p.id}
-                className="image-pin"
-                style={{ left: `${p.x}%`, top: `${p.y}%`, transform: `translate(-50%, -50%) scale(${1 / t.s})`, pointerEvents: adding ? 'none' : 'auto' }}
-                onClick={(e) => { e.stopPropagation(); onPoiClick?.(p) }}
-                title={p.title}
-              >
-                <span className="image-pin-dot" />
-                <span className="image-pin-label">{p.title}</span>
-              </button>
-            ))}
+            .map((p) => {
+              const left = t.x + (p.x / 100) * size.w * t.s
+              const top = t.y + (p.y / 100) * size.h * t.s
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  className="image-pin"
+                  style={{
+                    left,
+                    top,
+                    pointerEvents: adding ? 'none' : 'auto',
+                  }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onPoiClick?.(p)
+                  }}
+                  title={p.title}
+                >
+                  <span className="image-pin-dot" />
+                  <span className="image-pin-label">{p.title}</span>
+                </button>
+              )
+            })}
         </div>
 
         <div
