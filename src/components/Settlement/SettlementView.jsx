@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { getSettlement, setInfoSectionFull, updateSettlementMeta, addPoi, deletePoi, deleteSettlement, addArea, deleteArea, addSettlementMedia, deleteSettlementMedia } from '../../data/store.js'
 import { useStore } from '../../data/store.js'
 import { useSession, canEdit, canModerate, authorKey } from '../../data/session.js'
+import { withContentRepairs, persistContentRepairs } from '../../data/repairs.js'
 import { SECTION_ICONS, IconPin, IconEdit, IconTrash, IconPlus, IconClock } from '../ui/Icons.jsx'
 import { AREA_CATEGORIES, AREA_COLOR, AREA_LABEL } from '../../data/categories.js'
 import { imageSrc, youtubeIdFromUrl, driveIdFromUrl } from '../../data/media.js'
@@ -47,7 +48,8 @@ export default function SettlementView() {
   const { id } = useParams()
   const navigate = useNavigate()
   const session = useSession()
-  const s = getSettlement(id)
+  const raw = getSettlement(id)
+  const s = withContentRepairs(raw)
 
   const [tab, setTab] = useState('general')
   const [editMeta, setEditMeta] = useState(false)
@@ -58,6 +60,10 @@ export default function SettlementView() {
   const [drawCat, setDrawCat] = useState(null)
   const [draftPoints, setDraftPoints] = useState([])
   const [activeYear, setActiveYear] = useState(null)
+
+  useEffect(() => {
+    if (raw) persistContentRepairs(raw, session)
+  }, [raw, session])
 
   if (!s) return <div className="page-pad">היישוב לא נמצא. <button className="pill ghost" onClick={() => navigate('/')}>חזרה למפה</button></div>
 
@@ -130,7 +136,7 @@ export default function SettlementView() {
               )
             })}
           </div>
-          <SectionBody key={tab} settlementId={s.id} sectionKey={tab} section={section} canEdit={mod} />
+          <SectionBody key={tab} settlementId={s.id} sectionKey={tab} section={section} canEdit={editor} />
         </div>
 
         <div className="closeup-col">
