@@ -140,7 +140,7 @@ export default function SettlementView() {
             )}
           </div>
 
-          {mod && (
+          {editor && (
             <div className="area-tools row wrap gap-6">
               {drawCat ? (
                 <>
