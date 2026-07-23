@@ -20,6 +20,7 @@
  * @property {string} [timeLabel]   // "09:15" for the day-of-expulsion clock
  * @property {boolean} [approximate]// true => shown as ~09:15
  * @property {string} authorName
+ * @property {string} [authorKey]   // uid:/email:/name: for ownership checks
  * @property {number} createdAt
  * @property {string[]} [likedBy]   // user keys (uid / email / local name) who hearted this item
  * @property {'pending'|'approved'} [status] // legacy; new items are published as approved
@@ -31,6 +32,8 @@
  * @property {string} dateLabel   // free text: "18.10.23", "תחילת ספטמבר 2005"
  * @property {string} title
  * @property {string} description
+ * @property {string} [authorName]
+ * @property {string} [authorKey]
  * @property {MediaItem[]} media
  */
 
@@ -82,10 +85,21 @@
  * @property {string} [evacuatedTo]
  * @property {string} [tagline]
  * @property {ImageLayer[]} [imageLayers] // aerial photos by year (the settlement "map")
+ * @property {GalleryItem[]} [gallery]    // settlement-level media strip (e.g. Wikipedia photos)
  * @property {Area[]} [areas]     // optional area polygons on the photo
  * @property {InfoSection[]} info
  * @property {string[]} moderators
  * @property {Poi[]} pois
+ */
+
+/**
+ * @typedef {Object} GalleryItem
+ * @property {string} id
+ * @property {string} url
+ * @property {string} [thumb]
+ * @property {string} [caption]
+ * @property {string} [credit]
+ * @property {string} [sourceUrl]
  */
 
 export {}

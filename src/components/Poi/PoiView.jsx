@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { getSettlement, useStore, deleteMedia, addAfterEntry } from '../../data/store.js'
-import { useSession, canEdit, canModerate } from '../../data/session.js'
-import { IconPlus } from '../ui/Icons.jsx'
+import { getSettlement, useStore, deleteMedia, addAfterEntry, updateAfterEntry, deleteAfterEntry } from '../../data/store.js'
+import { useSession, canEdit, canModerate, canEditOwned, authorKey } from '../../data/session.js'
+import { IconPlus, IconEdit, IconTrash } from '../ui/Icons.jsx'
 import Modal from '../ui/Modal.jsx'
 import Breadcrumbs from '../ui/Breadcrumbs.jsx'
 import MediaCard from '../Media/MediaCard.jsx'
@@ -27,6 +27,7 @@ export default function PoiView() {
   const [phase, setPhase] = useState('before')
   const [uploadOpen, setUploadOpen] = useState(false)
   const [afterOpen, setAfterOpen] = useState(false)
+  const [editAfter, setEditAfter] = useState(null) // entry being edited
 
   if (!s || !poi) return <div className="page-pad">הנקודה לא נמצאה. <button className="pill ghost" onClick={() => navigate('/')}>למפה</button></div>
 
@@ -54,7 +55,7 @@ export default function PoiView() {
         <motion.div key={phase} className="phase-panel" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28 }}>
           {phase === 'before' && (
             <PhaseBlock title="לפני הגירוש" editor={editor} onAdd={() => setUploadOpen(true)}>
-              <MediaGrid items={poi.before || []} mod={mod} onDelete={(m) => deleteMedia(s.id, poi.id, m)} settlementId={s.id} poiId={poi.id} empty="עדיין אין תיעוד של התקופה שלפני הגירוש." />
+              <MediaGrid items={poi.before || []} mod={mod} session={session} onDelete={(m) => deleteMedia(s.id, poi.id, m)} settlementId={s.id} poiId={poi.id} empty="עדיין אין תיעוד של התקופה שלפני הגירוש." />
             </PhaseBlock>
           )}
 
@@ -62,13 +63,20 @@ export default function PoiView() {
             <PhaseBlock title="מסביב לשעון — יום הגירוש" editor={editor} onAdd={() => setUploadOpen(true)} addLabel="הוספת רגע">
               <DayClock items={poi.during || []} settlementId={s.id} poiId={poi.id} />
               <div className="divider" />
-              <MediaGrid items={poi.during || []} mod={mod} onDelete={(m) => deleteMedia(s.id, poi.id, m)} settlementId={s.id} poiId={poi.id} empty="הוסיפו רגעים עם תווית שעה כדי לבנות את ציר היום." />
+              <MediaGrid items={poi.during || []} mod={mod} session={session} onDelete={(m) => deleteMedia(s.id, poi.id, m)} settlementId={s.id} poiId={poi.id} empty="הוסיפו רגעים עם תווית שעה כדי לבנות את ציר היום." />
             </PhaseBlock>
           )}
 
           {phase === 'after' && (
             <PhaseBlock title="אחרי הגירוש" editor={editor} onAdd={() => setAfterOpen(true)} addLabel="הוספת תחנה">
-              <AfterTimeline entries={poi.after || []} mod={mod} settlementId={s.id} poiId={poi.id} />
+              <AfterTimeline
+                entries={poi.after || []}
+                session={session}
+                mod={mod}
+                settlementId={s.id}
+                poiId={poi.id}
+                onEdit={setEditAfter}
+              />
             </PhaseBlock>
           )}
         </motion.div>
@@ -78,7 +86,22 @@ export default function PoiView() {
         <MediaUploader settlementId={s.id} poiId={poi.id} phase={phase} onDone={() => setUploadOpen(false)} />
       </Modal>
 
-      <AfterEntryModal open={afterOpen} onClose={() => setAfterOpen(false)} settlementId={s.id} poiId={poi.id} />
+      <AfterEntryModal
+        open={afterOpen}
+        onClose={() => setAfterOpen(false)}
+        settlementId={s.id}
+        poiId={poi.id}
+        session={session}
+      />
+
+      <AfterEntryModal
+        open={!!editAfter}
+        onClose={() => setEditAfter(null)}
+        settlementId={s.id}
+        poiId={poi.id}
+        session={session}
+        entry={editAfter}
+      />
     </motion.div>
   )
 }
@@ -96,7 +119,7 @@ function PhaseBlock({ title, children, editor, onAdd, addLabel = 'הוספת מ�
   )
 }
 
-function MediaGrid({ items, mod, onDelete, empty, settlementId, poiId }) {
+function MediaGrid({ items, mod, session, onDelete, empty, settlementId, poiId }) {
   if (items.length === 0) return <p className="muted">{empty}</p>
   return (
     <div className="media-grid">
@@ -106,6 +129,7 @@ function MediaGrid({ items, mod, onDelete, empty, settlementId, poiId }) {
           item={m}
           index={i}
           canModerate={mod}
+          canOwnEdit={canEditOwned(session, m)}
           onDelete={() => onDelete(m.id)}
           settlementId={settlementId}
           poiId={poiId}
@@ -116,59 +140,108 @@ function MediaGrid({ items, mod, onDelete, empty, settlementId, poiId }) {
   )
 }
 
-function AfterTimeline({ entries, mod, settlementId, poiId }) {
+function AfterTimeline({ entries, session, mod, settlementId, poiId, onEdit }) {
   if (entries.length === 0) return <p className="muted">עדיין לא תועדה הדרך שאחרי הגירוש. הוסיפו תחנה — תאריך, כותרת ותיאור.</p>
   return (
     <div className="after-timeline">
-      {entries.map((d, i) => (
-        <motion.div key={d.id} className="after-entry" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}>
-          <div className="after-dot" />
-          <div className="after-content card">
-            <span className="pill sm is-active">{d.dateLabel}</span>
-            {d.title && <h4>{d.title}</h4>}
-            {d.description && <p>{d.description}</p>}
-            {(d.media || []).length > 0 && (
-              <div className="media-grid" style={{ marginTop: 10 }}>
-                {d.media.map((m, j) => (
-                  <MediaCard
-                    key={m.id}
-                    item={m}
-                    index={j}
-                    canModerate={mod}
-                    onDelete={() => deleteMedia(settlementId, poiId, m.id)}
-                    settlementId={settlementId}
-                    poiId={poiId}
-                    gallery={d.media}
-                  />
-                ))}
+      {entries.map((d, i) => {
+        const canOwn = canEditOwned(session, d)
+        return (
+          <motion.div key={d.id} className="after-entry" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}>
+            <div className="after-dot" />
+            <div className="after-content card">
+              <div className="row gap-8" style={{ alignItems: 'center', marginBottom: 4 }}>
+                <span className="pill sm is-active">{d.dateLabel}</span>
+                {d.authorName && <span className="muted" style={{ fontSize: '0.78rem' }}>{d.authorName}</span>}
+                <span className="grow" />
+                {canOwn && (
+                  <button type="button" className="icon-btn" title="עריכה" onClick={() => onEdit(d)}>
+                    <IconEdit width={14} height={14} />
+                  </button>
+                )}
+                {mod && (
+                  <button
+                    type="button"
+                    className="icon-btn danger"
+                    title="מחיקה"
+                    onClick={() => {
+                      if (confirm('למחוק את התחנה הזו?')) deleteAfterEntry(settlementId, poiId, d.id)
+                    }}
+                  >
+                    <IconTrash width={14} height={14} />
+                  </button>
+                )}
               </div>
-            )}
-          </div>
-        </motion.div>
-      ))}
+              {d.title && <h4>{d.title}</h4>}
+              {d.description && <p>{d.description}</p>}
+              {(d.media || []).length > 0 && (
+                <div className="media-grid" style={{ marginTop: 10 }}>
+                  {d.media.map((m, j) => (
+                    <MediaCard
+                      key={m.id}
+                      item={m}
+                      index={j}
+                      canModerate={mod}
+                      canOwnEdit={canEditOwned(session, m)}
+                      onDelete={() => deleteMedia(settlementId, poiId, m.id)}
+                      settlementId={settlementId}
+                      poiId={poiId}
+                      gallery={d.media}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )
+      })}
     </div>
   )
 }
 
-function AfterEntryModal({ open, onClose, settlementId, poiId }) {
+function AfterEntryModal({ open, onClose, settlementId, poiId, session, entry = null }) {
+  const editing = !!entry
   const [dateLabel, setDate] = useState('')
   const [title, setTitle] = useState('')
   const [description, setDesc] = useState('')
 
+  useEffect(() => {
+    if (!open) return
+    setDate(entry?.dateLabel || '')
+    setTitle(entry?.title || '')
+    setDesc(entry?.description || '')
+  }, [open, entry])
+
   function save() {
     if (!dateLabel.trim()) return
-    addAfterEntry(settlementId, poiId, { dateLabel: dateLabel.trim(), title: title.trim(), description: description.trim() })
+    if (editing) {
+      updateAfterEntry(settlementId, poiId, entry.id, {
+        dateLabel: dateLabel.trim(),
+        title: title.trim(),
+        description: description.trim(),
+      })
+    } else {
+      addAfterEntry(settlementId, poiId, {
+        dateLabel: dateLabel.trim(),
+        title: title.trim(),
+        description: description.trim(),
+        authorName: session.name || 'אנונימי',
+        authorKey: authorKey(session) || undefined,
+      })
+    }
     setDate(''); setTitle(''); setDesc('')
     onClose()
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="תחנה חדשה בדרך" wide>
+    <Modal open={open} onClose={onClose} title={editing ? 'עריכת תחנה' : 'תחנה חדשה בדרך'} wide>
       <div className="stack gap-12">
         <div><label className="lbl">תאריך / תקופה (טקסט חופשי)</label><input className="field" value={dateLabel} onChange={(e) => setDate(e.target.value)} placeholder="למשל: ספטמבר 2005 / 2009" /></div>
         <div><label className="lbl">כותרת</label><input className="field" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="למשל: מעבר לבית קבע" /></div>
         <div><label className="lbl">תיאור</label><textarea className="field" rows={4} value={description} onChange={(e) => setDesc(e.target.value)} /></div>
-        <div className="row" style={{ justifyContent: 'flex-end' }}><button className="btn btn-primary" disabled={!dateLabel.trim()} onClick={save}>הוספה</button></div>
+        <div className="row" style={{ justifyContent: 'flex-end' }}>
+          <button className="btn btn-primary" disabled={!dateLabel.trim()} onClick={save}>{editing ? 'שמירה' : 'הוספה'}</button>
+        </div>
       </div>
     </Modal>
   )

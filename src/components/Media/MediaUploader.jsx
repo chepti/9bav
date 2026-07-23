@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { addMedia } from '../../data/store.js'
-import { useSession } from '../../data/session.js'
+import { useSession, authorKey } from '../../data/session.js'
 import { uploadToDrive, isDriveConfigured } from '../../data/drive.js'
 import { youtubeIdFromUrl } from '../../data/media.js'
 import { MEDIA_ICONS } from '../ui/Icons.jsx'
@@ -59,6 +59,7 @@ export default function MediaUploader({ settlementId, poiId, phase, onDone }) {
         title: title.trim(),
         body: body.trim(),
         authorName: session.name || 'אנונימי',
+        authorKey: authorKey(session) || undefined,
       }
       if (phase === 'during') {
         item.timeLabel = timeLabel.trim() || undefined

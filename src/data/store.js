@@ -261,6 +261,8 @@ export function addMedia(settlementId, poiId, phase, item) {
         dateLabel: item.dateLabel || 'ללא תאריך',
         title: item.title || '',
         description: item.body || '',
+        authorName: item.authorName || 'אנונימי',
+        authorKey: item.authorKey || undefined,
         media: item.url ? [media] : [],
       })
     } else {
@@ -271,14 +273,63 @@ export function addMedia(settlementId, poiId, phase, item) {
   return mediaId
 }
 
-export function addAfterEntry(settlementId, poiId, { dateLabel, title, description }) {
+export function addAfterEntry(settlementId, poiId, { dateLabel, title, description, authorName, authorKey }) {
   const entryId = uid('d')
   mutateSettlement(settlementId, (s) => {
     const p = s.pois.find((p) => p.id === poiId)
-    if (p) p.after.push({ id: entryId, dateLabel, title, description, media: [] })
+    if (p) {
+      p.after.push({
+        id: entryId,
+        dateLabel,
+        title,
+        description,
+        authorName: authorName || 'אנונימי',
+        authorKey: authorKey || undefined,
+        media: [],
+      })
+    }
     return s
   })
   return entryId
+}
+
+export function updateAfterEntry(settlementId, poiId, entryId, { dateLabel, title, description }) {
+  mutateSettlement(settlementId, (s) => {
+    const p = s.pois.find((p) => p.id === poiId)
+    const d = p?.after?.find((e) => e.id === entryId)
+    if (!d) return s
+    if (dateLabel != null) d.dateLabel = dateLabel
+    if (title != null) d.title = title
+    if (description != null) d.description = description
+    return s
+  })
+}
+
+export function deleteAfterEntry(settlementId, poiId, entryId) {
+  mutateSettlement(settlementId, (s) => {
+    const p = s.pois.find((p) => p.id === poiId)
+    if (p) p.after = (p.after || []).filter((e) => e.id !== entryId)
+    return s
+  })
+}
+
+export function updateMedia(settlementId, poiId, mediaId, patch) {
+  mutateSettlement(settlementId, (s) => {
+    const p = s.pois.find((p) => p.id === poiId)
+    if (!p) return s
+    const apply = (m) => {
+      if (m.id !== mediaId) return
+      if (patch.title != null) m.title = patch.title
+      if (patch.body != null) m.body = patch.body
+      if (patch.timeLabel != null) m.timeLabel = patch.timeLabel
+      if (patch.approximate != null) m.approximate = patch.approximate
+      if (patch.url != null) m.url = patch.url
+    }
+    ;(p.before || []).forEach(apply)
+    ;(p.during || []).forEach(apply)
+    ;(p.after || []).forEach((d) => (d.media || []).forEach(apply))
+    return s
+  })
 }
 
 export function setMediaStatus(settlementId, poiId, mediaId, status) {

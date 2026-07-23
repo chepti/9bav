@@ -141,3 +141,22 @@ export function canEdit(role) {
 export function canModerate(role) {
   return role === 'moderator'
 }
+
+/** Stable key for the signed-in user (uid → email → local name). */
+export function authorKey(session) {
+  if (session?.uid) return `uid:${session.uid}`
+  if (session?.email) return `email:${String(session.email).toLowerCase()}`
+  if (session?.role && session.role !== 'guest' && session.name) return `name:${session.name}`
+  return null
+}
+
+/** Moderators, or the person who created the item (by authorKey / authorName). */
+export function canEditOwned(session, item) {
+  if (!session || session.role === 'guest') return false
+  if (canModerate(session.role)) return true
+  if (!item) return false
+  const key = authorKey(session)
+  if (key && item.authorKey && key === item.authorKey) return true
+  if (session.name && item.authorName && session.name.trim() === String(item.authorName).trim()) return true
+  return false
+}
