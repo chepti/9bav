@@ -3,10 +3,8 @@ rules_version = '2';
 // Firestore security rules for the Gush Katif documentation project.
 //
 // Model note: settlements are stored as single documents with POIs/media
-// embedded. These rules keep reads public and restrict writes to signed-in
-// users (community-wiki style). For stronger moderation guarantees (e.g. only
-// moderators can flip a media item to "approved"), migrate media to a
-// subcollection and add field-level checks — see SETUP.md.
+// embedded. Reads are public; signed-in users may contribute (wiki-style,
+// published immediately). Only moderators may delete a whole settlement.
 
 service cloud.firestore {
   match /databases/{database}/documents {

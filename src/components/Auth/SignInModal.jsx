@@ -4,7 +4,7 @@ import { signIn, signInGoogle, isLiveAuth } from '../../data/session.js'
 
 const ROLES = [
   { key: 'resident', label: 'תושב/ת שגורש/ה', desc: 'הוספת נקודות עניין, סיפורים ומדיה על הבית שלכם.' },
-  { key: 'moderator', label: 'מודרטור יישוב', desc: 'נעיצת יישובים, עריכת מידע כללי ואישור תכנים.' },
+  { key: 'moderator', label: 'מודרטור יישוב', desc: 'נעיצת יישובים, עריכת מידע כללי ומחיקת תכנים.' },
 ]
 
 export default function SignInModal({ open, onClose }) {
@@ -34,7 +34,7 @@ function GoogleSignIn({ open, onClose }) {
       <div className="stack gap-16">
         <p className="muted" style={{ fontSize: '0.92rem' }}>
           התחברו כדי לנעוץ את הבית שלכם ולהוסיף סיפורים, תמונות ומסמכים.
-          התכנים שתוסיפו יופיעו לצד שמכם וימתינו לאישור מודרטור.
+          התכנים שתוסיפו מתפרסמים מיד לצד שמכם.
         </p>
         <button className="btn btn-primary" disabled={busy} onClick={go} style={{ justifyContent: 'center' }}>
           {busy ? 'מתחבר…' : 'התחברות עם Google'}

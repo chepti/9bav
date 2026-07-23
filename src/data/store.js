@@ -178,8 +178,8 @@ export function setInfoSection(settlementId, key, body) {
 
 // Full update of an info section: an intro paragraph plus a chronological list
 // of { id, timeLabel, body } entries shown as a settlement-level timeline.
-// pendingReview marks an edit made by a non-moderator as awaiting approval.
-export function setInfoSectionFull(settlementId, key, { body, entries, pendingReview }) {
+// Edits publish immediately (wiki-style); moderators delete unwanted content.
+export function setInfoSectionFull(settlementId, key, { body, entries }) {
   mutateSettlement(settlementId, (s) => {
     if (!Array.isArray(s.info)) s.info = []
     let sec = s.info.find((i) => i.key === key)
@@ -191,16 +191,7 @@ export function setInfoSectionFull(settlementId, key, { body, entries, pendingRe
     sec.entries = (entries || [])
       .filter((e) => (e.timeLabel && e.timeLabel.trim()) || (e.body && e.body.trim()))
       .map((e) => ({ id: e.id || uid('ie'), timeLabel: (e.timeLabel || '').trim(), body: (e.body || '').trim() }))
-    sec.pendingReview = !!pendingReview
-    return s
-  })
-}
-
-// A moderator clears the pending-review flag, approving a resident's edit.
-export function approveInfoSection(settlementId, key) {
-  mutateSettlement(settlementId, (s) => {
-    const sec = (s.info || []).find((i) => i.key === key)
-    if (sec) sec.pendingReview = false
+    delete sec.pendingReview
     return s
   })
 }
@@ -252,7 +243,7 @@ export function addMedia(settlementId, poiId, phase, item) {
   const media = {
     id: mediaId,
     createdAt: Date.now(),
-    status: 'pending',
+    status: 'approved', // published immediately; moderators may delete
     authorName: item.authorName || 'אנונימי',
     ...item,
   }

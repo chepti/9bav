@@ -2,19 +2,19 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Modal from '../ui/Modal.jsx'
 import { useRoles, addRole, removeRole } from '../../data/roles.js'
-import { useStore, getSettlements, setMediaStatus, deleteMedia, deleteSettlement } from '../../data/store.js'
+import { useStore, getSettlements, deleteMedia, deleteSettlement } from '../../data/store.js'
 import { useSession, isLiveAuth } from '../../data/session.js'
-import { MEDIA_ICONS, IconCheck, IconTrash, IconUser, IconPin } from '../ui/Icons.jsx'
+import { MEDIA_ICONS, IconTrash, IconUser, IconPin } from '../ui/Icons.jsx'
 
 const REGION_LABEL = { gush_katif: 'גוש קטיף', northern_samaria: 'צפון השומרון' }
 
 export default function AdminPanel({ open, onClose }) {
-  const [tab, setTab] = useState('queue')
+  const [tab, setTab] = useState('content')
   return (
     <Modal open={open} onClose={onClose} title="ניהול ומודרציה" wide>
       <div className="row wrap gap-6" style={{ marginBottom: 16 }}>
-        <button className={`pill ${tab === 'queue' ? 'is-active' : 'ghost'}`} onClick={() => setTab('queue')}>
-          <IconCheck width={14} height={14} /> ממתין לאישור
+        <button className={`pill ${tab === 'content' ? 'is-active' : 'ghost'}`} onClick={() => setTab('content')}>
+          <IconTrash width={14} height={14} /> תוכן למחיקה
         </button>
         <button className={`pill ${tab === 'settlements' ? 'is-active' : 'ghost'}`} onClick={() => setTab('settlements')}>
           <IconPin width={14} height={14} /> יישובים
@@ -23,7 +23,7 @@ export default function AdminPanel({ open, onClose }) {
           <IconUser width={14} height={14} /> מודרטורים
         </button>
       </div>
-      {tab === 'queue' && <ModerationQueue onClose={onClose} />}
+      {tab === 'content' && <ContentModeration onClose={onClose} />}
       {tab === 'settlements' && <SettlementsAdmin onClose={onClose} />}
       {tab === 'mods' && <Moderators />}
     </Modal>
@@ -77,36 +77,36 @@ function SettlementsAdmin({ onClose }) {
   )
 }
 
-// ---------- Moderation queue: pending media across all settlements ----------
-function ModerationQueue({ onClose }) {
+// ---------- Recent content: moderators delete unwanted items ----------
+function ContentModeration({ onClose }) {
   useStore()
   const navigate = useNavigate()
   const settlements = getSettlements()
 
-  const pending = useMemo(() => {
+  const items = useMemo(() => {
     const out = []
     for (const s of settlements) {
       for (const p of s.pois || []) {
         const collect = (arr, phase) =>
-          (arr || []).forEach((m) => {
-            if (m.status === 'pending') out.push({ m, phase, s, p })
-          })
+          (arr || []).forEach((m) => out.push({ m, phase, s, p }))
         collect(p.before, 'לפני')
         collect(p.during, 'ביום הגירוש')
         ;(p.after || []).forEach((d) => collect(d.media, `אחרי · ${d.dateLabel}`))
       }
     }
-    return out.sort((a, b) => (b.m.createdAt || 0) - (a.m.createdAt || 0))
+    return out.sort((a, b) => (b.m.createdAt || 0) - (a.m.createdAt || 0)).slice(0, 80)
   }, [settlements])
 
-  if (pending.length === 0) {
-    return <p className="muted" style={{ textAlign: 'center', padding: 24 }}>אין פריטים הממתינים לאישור. הכל נקי. 🌱</p>
+  if (items.length === 0) {
+    return <p className="muted" style={{ textAlign: 'center', padding: 24 }}>אין עדיין מדיה במערכת.</p>
   }
 
   return (
     <div className="stack gap-8">
-      <p className="muted" style={{ fontSize: '0.86rem' }}>{pending.length} פריטים ממתינים לאישור:</p>
-      {pending.map(({ m, phase, s, p }) => {
+      <p className="muted" style={{ fontSize: '0.86rem' }}>
+        תכנים מתפרסמים מיד. כאן אפשר למחוק פריטים לא רצויים (מוצגים עד 80 האחרונים):
+      </p>
+      {items.map(({ m, phase, s, p }) => {
         const Icon = MEDIA_ICONS[m.type] || MEDIA_ICONS.text
         return (
           <div key={m.id} className="queue-item">
@@ -122,7 +122,6 @@ function ModerationQueue({ onClose }) {
             </div>
             <div className="row gap-6">
               <button className="pill sm ghost" onClick={() => { onClose(); navigate(`/poi/${s.id}/${p.id}`) }}>פתח</button>
-              <button className="pill sm is-active" onClick={() => setMediaStatus(s.id, p.id, m.id, 'approved')}><IconCheck width={13} height={13} /></button>
               <button className="pill sm ghost danger" onClick={() => { if (confirm('למחוק את הפריט?')) deleteMedia(s.id, p.id, m.id) }}><IconTrash width={13} height={13} /></button>
             </div>
           </div>

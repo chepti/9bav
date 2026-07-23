@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { getSettlement, useStore, setMediaStatus, deleteMedia, addAfterEntry } from '../../data/store.js'
+import { getSettlement, useStore, deleteMedia, addAfterEntry } from '../../data/store.js'
 import { useSession, canEdit, canModerate } from '../../data/session.js'
 import { IconPlus } from '../ui/Icons.jsx'
 import Modal from '../ui/Modal.jsx'
@@ -33,8 +33,6 @@ export default function PoiView() {
   const editor = canEdit(session.role)
   const mod = canModerate(session.role)
 
-  const visible = (arr) => (mod ? arr : arr.filter((m) => m.status === 'approved'))
-
   return (
     <motion.div className="poi-view" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
       <div className="poi-hero">
@@ -56,21 +54,21 @@ export default function PoiView() {
         <motion.div key={phase} className="phase-panel" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28 }}>
           {phase === 'before' && (
             <PhaseBlock title="לפני הגירוש" editor={editor} onAdd={() => setUploadOpen(true)}>
-              <MediaGrid items={visible(poi.before)} mod={mod} onApprove={(m) => setMediaStatus(s.id, poi.id, m, 'approved')} onDelete={(m) => deleteMedia(s.id, poi.id, m)} empty="עדיין אין תיעוד של התקופה שלפני הגירוש." />
+              <MediaGrid items={poi.before || []} mod={mod} onDelete={(m) => deleteMedia(s.id, poi.id, m)} empty="עדיין אין תיעוד של התקופה שלפני הגירוש." />
             </PhaseBlock>
           )}
 
           {phase === 'during' && (
             <PhaseBlock title="מסביב לשעון — יום הגירוש" editor={editor} onAdd={() => setUploadOpen(true)} addLabel="הוספת רגע">
-              <DayClock items={visible(poi.during)} />
+              <DayClock items={poi.during || []} />
               <div className="divider" />
-              <MediaGrid items={visible(poi.during)} mod={mod} onApprove={(m) => setMediaStatus(s.id, poi.id, m, 'approved')} onDelete={(m) => deleteMedia(s.id, poi.id, m)} empty="הוסיפו רגעים עם תווית שעה כדי לבנות את ציר היום." />
+              <MediaGrid items={poi.during || []} mod={mod} onDelete={(m) => deleteMedia(s.id, poi.id, m)} empty="הוסיפו רגעים עם תווית שעה כדי לבנות את ציר היום." />
             </PhaseBlock>
           )}
 
           {phase === 'after' && (
             <PhaseBlock title="אחרי הגירוש" editor={editor} onAdd={() => setAfterOpen(true)} addLabel="הוספת תחנה">
-              <AfterTimeline entries={poi.after.map((d) => ({ ...d, media: visible(d.media) }))} mod={mod} settlementId={s.id} poiId={poi.id} />
+              <AfterTimeline entries={poi.after || []} mod={mod} settlementId={s.id} poiId={poi.id} />
             </PhaseBlock>
           )}
         </motion.div>
@@ -98,12 +96,12 @@ function PhaseBlock({ title, children, editor, onAdd, addLabel = 'הוספת מ�
   )
 }
 
-function MediaGrid({ items, mod, onApprove, onDelete, empty }) {
+function MediaGrid({ items, mod, onDelete, empty }) {
   if (items.length === 0) return <p className="muted">{empty}</p>
   return (
     <div className="media-grid">
       {items.map((m, i) => (
-        <MediaCard key={m.id} item={m} index={i} canModerate={mod} onApprove={() => onApprove(m.id)} onDelete={() => onDelete(m.id)} />
+        <MediaCard key={m.id} item={m} index={i} canModerate={mod} onDelete={() => onDelete(m.id)} />
       ))}
     </div>
   )
@@ -120,10 +118,10 @@ function AfterTimeline({ entries, mod, settlementId, poiId }) {
             <span className="pill sm is-active">{d.dateLabel}</span>
             {d.title && <h4>{d.title}</h4>}
             {d.description && <p>{d.description}</p>}
-            {d.media.length > 0 && (
+            {(d.media || []).length > 0 && (
               <div className="media-grid" style={{ marginTop: 10 }}>
                 {d.media.map((m, j) => (
-                  <MediaCard key={m.id} item={m} index={j} canModerate={mod} onApprove={() => setMediaStatus(settlementId, poiId, m.id, 'approved')} onDelete={() => deleteMedia(settlementId, poiId, m.id)} />
+                  <MediaCard key={m.id} item={m} index={j} canModerate={mod} onDelete={() => deleteMedia(settlementId, poiId, m.id)} />
                 ))}
               </div>
             )}

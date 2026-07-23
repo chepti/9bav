@@ -21,7 +21,7 @@
  * @property {boolean} [approximate]// true => shown as ~09:15
  * @property {string} authorName
  * @property {number} createdAt
- * @property {'pending'|'approved'} status
+ * @property {'pending'|'approved'} [status] // legacy; new items are published as approved
  */
 
 /**

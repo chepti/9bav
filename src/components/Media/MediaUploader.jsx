@@ -182,7 +182,7 @@ export default function MediaUploader({ settlementId, poiId, phase, onDone }) {
         </button>
       </div>
       <p className="muted" style={{ fontSize: '0.78rem' }}>
-        הפריט יסומן כ"ממתין לאישור" עד שמודרטור היישוב יאשר אותו.
+        הפריט יפורסם מיד. מודרטור יכול למחוק אותו אם צריך.
       </p>
     </div>
   )

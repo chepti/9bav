@@ -3,7 +3,7 @@ import { HashRouter, Routes, Route, Link } from 'react-router-dom'
 import { useSession, signOut } from './data/session.js'
 import { resetToSeed, isLive } from './data/store.js'
 import { useVisitorCount } from './data/visits.js'
-import { IconUser, IconSeed, IconCheck, IconMail } from './components/ui/Icons.jsx'
+import { IconUser, IconSeed, IconTrash, IconMail } from './components/ui/Icons.jsx'
 
 const WHATSAPP_URL = 'https://wa.me/972544477081' // 054-4477081
 import SignInModal from './components/Auth/SignInModal.jsx'
@@ -31,7 +31,7 @@ function Header({ onSignIn, onAdmin }) {
       ) : (
         <div className="row gap-8">
           {session.role === 'moderator' && (
-            <button className="pill" onClick={onAdmin}><IconCheck width={14} height={14} /> ניהול</button>
+            <button className="pill" onClick={onAdmin}><IconTrash width={14} height={14} /> ניהול</button>
           )}
           <span className="pill ghost sm">{ROLE_LABEL[session.role]} · {session.name}</span>
           <button className="pill ghost sm" onClick={signOut}>יציאה</button>
