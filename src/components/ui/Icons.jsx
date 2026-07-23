@@ -19,6 +19,7 @@ export const IconLeaf = (p) => (<svg {...base} {...p}><path d="M11 20A7 7 0 0 1 
 export const IconBook = (p) => (<svg {...base} {...p}><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z" /><path d="M4 5v16" /></svg>)
 export const IconHome = (p) => (<svg {...base} {...p}><path d="M3 11l9-8 9 8" /><path d="M5 10v10h14V10" /></svg>)
 export const IconStore = (p) => (<svg {...base} {...p}><path d="M4 4h16l-1 5H5zM5 9v11h14V9M9 20v-6h6v6" /></svg>)
+export const IconMail = (p) => (<svg {...base} {...p}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" /></svg>)
 
 export const SECTION_ICONS = {
   general: IconHome,

@@ -62,5 +62,14 @@ service cloud.firestore {
       allow read: if signedIn();
       allow write: if isOwner() || isModerator();
     }
+
+    // Public visitor counter (meta/stats.visits). Anyone may read; a write may
+    // only create the counter or bump `visits` by exactly one — so it can't be
+    // reset or inflated arbitrarily.
+    match /meta/{docId} {
+      allow read: if true;
+      allow create: if request.resource.data.visits is int;
+      allow update: if request.resource.data.visits == resource.data.visits + 1;
+    }
   }
 }

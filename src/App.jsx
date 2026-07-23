@@ -2,7 +2,10 @@ import { useState } from 'react'
 import { HashRouter, Routes, Route, Link } from 'react-router-dom'
 import { useSession, signOut } from './data/session.js'
 import { resetToSeed, isLive } from './data/store.js'
-import { IconUser, IconSeed, IconCheck } from './components/ui/Icons.jsx'
+import { useVisitorCount } from './data/visits.js'
+import { IconUser, IconSeed, IconCheck, IconMail } from './components/ui/Icons.jsx'
+
+const WHATSAPP_URL = 'https://wa.me/972544477081' // 054-4477081
 import SignInModal from './components/Auth/SignInModal.jsx'
 import AdminPanel from './components/Admin/AdminPanel.jsx'
 import Home from './components/Home.jsx'
@@ -41,6 +44,7 @@ function Header({ onSignIn, onAdmin }) {
 function Footer() {
   const session = useSession()
   const live = isLive()
+  const visits = useVisitorCount()
   // In live mode only a moderator can seed, and it writes to the shared DB.
   const showSeed = live ? session.role === 'moderator' : true
   const label = live ? 'טעינת יישובים ראשוניים' : 'איפוס הדגמה'
@@ -52,6 +56,15 @@ function Footer() {
       <span className="muted">
         פרויקט תיעוד קהילתי · {live ? 'מערכת חיה' : 'מצב הדגמה מקומי'}
       </span>
+      <span className="grow" />
+      {visits != null && (
+        <span className="muted visit-count" title="כניסות לאתר">
+          <span aria-hidden="true">👁️</span> {visits.toLocaleString('he-IL')} כניסות
+        </span>
+      )}
+      <a className="pill ghost sm" href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" title="פנייה בוואטסאפ">
+        <IconMail width={13} height={13} /> פנייה
+      </a>
       {showSeed && (
         <button className="pill ghost sm" onClick={() => { if (confirm(confirmText)) resetToSeed() }}>
           <IconSeed width={13} height={13} /> {label}

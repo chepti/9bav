@@ -56,10 +56,18 @@
 .app-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
   padding: 16px clamp(16px, 4vw, 40px);
   border-top: 1px solid rgba(180, 130, 60, 0.14);
   font-size: 0.85rem;
+}
+.app-footer .visit-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.82rem;
+  white-space: nowrap;
 }
 
 .page-pad { padding: 40px; }
