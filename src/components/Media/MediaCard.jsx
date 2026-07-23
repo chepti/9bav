@@ -5,7 +5,9 @@ import { imageSrc, videoEmbed, youtubeIdFromUrl } from '../../data/media.js'
 import MediaLightbox, { canOpenLightbox } from './MediaLightbox.jsx'
 import { toggleMediaHeart, updateMedia } from '../../data/store.js'
 import { useSession } from '../../data/session.js'
+import { buildWhenFields, formatWhenDisplay } from '../../data/when.js'
 import Modal from '../ui/Modal.jsx'
+import WhenFields from './WhenFields.jsx'
 
 function heartKey(session) {
   if (session?.uid) return session.uid
@@ -60,7 +62,9 @@ export default function MediaCard({
         <div className="media-card-head row gap-8">
           <span className="media-type-badge"><Icon width={14} height={14} /></span>
           {item.title && <strong>{item.title}</strong>}
-          {item.timeLabel && <span className="pill sm ghost">{item.approximate ? '~' : ''}{item.timeLabel}</span>}
+          {(item.timeLabel || item.dateGregorian || item.dateHebrew) && (
+            <span className="pill sm ghost">{formatWhenDisplay(item)}</span>
+          )}
           <span className="grow" />
           {showEdit && (
             <button type="button" className="icon-btn" title="עריכה" onClick={() => setEditOpen(true)}>
@@ -153,14 +157,20 @@ export default function MediaCard({
 function MediaEditModal({ open, onClose, item, settlementId, poiId }) {
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
+  const [dateGregorian, setDateGregorian] = useState('')
+  const [dateHebrew, setDateHebrew] = useState('')
   const [timeLabel, setTimeLabel] = useState('')
   const [approximate, setApproximate] = useState(false)
   const [youtubeUrl, setYoutubeUrl] = useState('')
+
+  const showWhen = !!(item && (item.timeLabel != null || item.dateGregorian || item.dateHebrew || item.approximate || item.whenMs))
 
   useEffect(() => {
     if (!open || !item) return
     setTitle(item.title || '')
     setBody(item.body || '')
+    setDateGregorian(item.dateGregorian || '')
+    setDateHebrew(item.dateHebrew || '')
     setTimeLabel(item.timeLabel || '')
     setApproximate(!!item.approximate)
     setYoutubeUrl(youtubeIdFromUrl(item.url) ? item.url : '')
@@ -172,9 +182,8 @@ function MediaEditModal({ open, onClose, item, settlementId, poiId }) {
       title: title.trim(),
       body: body.trim(),
     }
-    if (item.timeLabel != null || timeLabel.trim()) {
-      patch.timeLabel = timeLabel.trim() || undefined
-      patch.approximate = approximate
+    if (showWhen) {
+      Object.assign(patch, buildWhenFields({ dateGregorian, dateHebrew, timeLabel, approximate }))
     }
     if (item.type === 'video' && youtubeUrl.trim()) {
       const yt = youtubeIdFromUrl(youtubeUrl)
@@ -193,17 +202,19 @@ function MediaEditModal({ open, onClose, item, settlementId, poiId }) {
           <label className="lbl">כותרת</label>
           <input className="field" value={title} onChange={(e) => setTitle(e.target.value)} />
         </div>
-        {(item.timeLabel != null || item.approximate) && (
-          <div className="row gap-12 wrap">
-            <div style={{ flex: '1 1 140px' }}>
-              <label className="lbl">שעה</label>
-              <input className="field" value={timeLabel} onChange={(e) => setTimeLabel(e.target.value)} placeholder="HH:MM" />
-            </div>
-            <label className="row gap-6" style={{ marginTop: 22, cursor: 'pointer' }}>
-              <input type="checkbox" checked={approximate} onChange={(e) => setApproximate(e.target.checked)} />
-              <span>שעה משוערת (~)</span>
-            </label>
-          </div>
+        {showWhen && (
+          <WhenFields
+            dateGregorian={dateGregorian}
+            dateHebrew={dateHebrew}
+            timeLabel={timeLabel}
+            approximate={approximate}
+            onChange={(patch) => {
+              if ('dateGregorian' in patch) setDateGregorian(patch.dateGregorian || '')
+              if ('dateHebrew' in patch) setDateHebrew(patch.dateHebrew || '')
+              if ('timeLabel' in patch) setTimeLabel(patch.timeLabel || '')
+              if ('approximate' in patch) setApproximate(!!patch.approximate)
+            }}
+          />
         )}
         {item.type === 'video' && (
           <div>

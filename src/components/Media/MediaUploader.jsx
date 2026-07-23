@@ -3,7 +3,9 @@ import { addMedia } from '../../data/store.js'
 import { useSession, authorKey } from '../../data/session.js'
 import { uploadToDrive, isDriveConfigured } from '../../data/drive.js'
 import { youtubeIdFromUrl } from '../../data/media.js'
+import { buildWhenFields, DEFAULT_EXPULSION_DATE, gregorianToHebrew } from '../../data/when.js'
 import { MEDIA_ICONS } from '../ui/Icons.jsx'
+import WhenFields from './WhenFields.jsx'
 
 const TYPES = [
   { key: 'text', label: 'טקסט' },
@@ -28,6 +30,8 @@ export default function MediaUploader({ settlementId, poiId, phase, onDone }) {
   const [body, setBody] = useState('')
   const [file, setFile] = useState(null)
   const [youtubeUrl, setYoutubeUrl] = useState('')
+  const [dateGregorian, setDateGregorian] = useState(DEFAULT_EXPULSION_DATE)
+  const [dateHebrew, setDateHebrew] = useState(() => gregorianToHebrew(DEFAULT_EXPULSION_DATE))
   const [timeLabel, setTimeLabel] = useState('')
   const [approximate, setApproximate] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -62,8 +66,7 @@ export default function MediaUploader({ settlementId, poiId, phase, onDone }) {
         authorKey: authorKey(session) || undefined,
       }
       if (phase === 'during') {
-        item.timeLabel = timeLabel.trim() || undefined
-        item.approximate = approximate
+        Object.assign(item, buildWhenFields({ dateGregorian, dateHebrew, timeLabel, approximate }))
       }
       if (type === 'video' && ytId && !file) {
         item.url = `https://www.youtube.com/watch?v=${ytId}`
@@ -73,7 +76,6 @@ export default function MediaUploader({ settlementId, poiId, phase, onDone }) {
           item.url = up.url
           item.driveId = up.id
         } else {
-          // offline prototype: inline as data-URL
           item.url = await fileToDataUrl(file)
         }
       }
@@ -90,13 +92,14 @@ export default function MediaUploader({ settlementId, poiId, phase, onDone }) {
   const needsFile = type === 'photo' || type === 'document'
   const accept = type === 'photo' ? 'image/*' : type === 'video' ? 'video/*' : undefined
   const hasVideoSource = type === 'video' && (!!file || !!ytId)
+  const hasWhen = !!(timeLabel.trim() || dateGregorian || dateHebrew.trim())
   const valid =
     (type === 'text'
       ? body.trim().length > 0
       : type === 'video'
         ? hasVideoSource
         : !!file) &&
-    (phase !== 'during' || timeLabel.trim().length > 0)
+    (phase !== 'during' || hasWhen)
 
   return (
     <div className="stack gap-16">
@@ -112,16 +115,18 @@ export default function MediaUploader({ settlementId, poiId, phase, onDone }) {
       </div>
 
       {phase === 'during' && (
-        <div className="row gap-12 wrap">
-          <div style={{ flex: '1 1 140px' }}>
-            <label className="lbl">שעה (למשל 09:15)</label>
-            <input className="field" value={timeLabel} onChange={(e) => setTimeLabel(e.target.value)} placeholder="HH:MM" inputMode="numeric" />
-          </div>
-          <label className="row gap-6" style={{ marginTop: 22, cursor: 'pointer' }}>
-            <input type="checkbox" checked={approximate} onChange={(e) => setApproximate(e.target.checked)} />
-            <span>שעה משוערת (~)</span>
-          </label>
-        </div>
+        <WhenFields
+          dateGregorian={dateGregorian}
+          dateHebrew={dateHebrew}
+          timeLabel={timeLabel}
+          approximate={approximate}
+          onChange={(patch) => {
+            if ('dateGregorian' in patch) setDateGregorian(patch.dateGregorian || '')
+            if ('dateHebrew' in patch) setDateHebrew(patch.dateHebrew || '')
+            if ('timeLabel' in patch) setTimeLabel(patch.timeLabel || '')
+            if ('approximate' in patch) setApproximate(!!patch.approximate)
+          }}
+        />
       )}
 
       <div>

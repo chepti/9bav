@@ -932,11 +932,22 @@
 
 /* ============ Day clock ============ */
 .dayclock { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 10px 0; }
+.dayclock-hint { text-align: center; font-size: 0.82rem; max-width: 420px; margin: 0; }
 .dayclock-ring { position: relative; }
 .dayclock-svg { position: absolute; inset: 0; }
 .clock-quarter {
-  position: absolute; transform: translate(50%, -50%);
+  position: absolute; transform: translate(-50%, -50%);
   font-family: var(--font-display); font-size: 0.72rem; color: var(--muted);
+}
+.clock-endpoint {
+  max-width: 110px;
+  text-align: center;
+  line-height: 1.25;
+  font-size: 0.68rem;
+  color: var(--ink-700);
+  background: color-mix(in srgb, var(--sand-50) 88%, transparent);
+  padding: 2px 4px;
+  border-radius: 6px;
 }
 .clock-center {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);

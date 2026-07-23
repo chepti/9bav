@@ -17,8 +17,11 @@
  * @property {string} [title]
  * @property {string} [body]        // text content or caption
  * @property {string} [url]         // photo/video/document source (data-URL, Drive link, or YouTube URL)
- * @property {string} [timeLabel]   // "09:15" for the day-of-expulsion clock
- * @property {boolean} [approximate]// true => shown as ~09:15
+ * @property {string} [timeLabel]   // "09:15" — clock / relative timeline
+ * @property {string} [dateGregorian] // YYYY-MM-DD for multi-day expulsion span
+ * @property {string} [dateHebrew]  // e.g. י׳ באב תשס״ה (Hebcal)
+ * @property {number} [whenMs]      // absolute ms for ordering on the relative arc
+ * @property {boolean} [approximate]// true => shown as ~
  * @property {string} authorName
  * @property {string} [authorKey]   // uid:/email:/name: for ownership checks
  * @property {number} createdAt

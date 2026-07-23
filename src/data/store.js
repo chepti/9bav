@@ -321,8 +321,11 @@ export function updateMedia(settlementId, poiId, mediaId, patch) {
       if (m.id !== mediaId) return
       if (patch.title != null) m.title = patch.title
       if (patch.body != null) m.body = patch.body
-      if (patch.timeLabel != null) m.timeLabel = patch.timeLabel
-      if (patch.approximate != null) m.approximate = patch.approximate
+      if ('timeLabel' in patch) m.timeLabel = patch.timeLabel || undefined
+      if ('approximate' in patch) m.approximate = !!patch.approximate
+      if ('dateGregorian' in patch) m.dateGregorian = patch.dateGregorian || undefined
+      if ('dateHebrew' in patch) m.dateHebrew = patch.dateHebrew || undefined
+      if ('whenMs' in patch) m.whenMs = patch.whenMs
       if (patch.url != null) m.url = patch.url
     }
     ;(p.before || []).forEach(apply)

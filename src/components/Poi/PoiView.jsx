@@ -12,7 +12,7 @@ import DayClock from './DayClock.jsx'
 
 const PHASES = [
   { key: 'before', label: 'לפני הגירוש', hint: 'איך נראו החיים כאן' },
-  { key: 'during', label: 'מסביב לשעון', hint: 'רגעי יום הגירוש, לפי שעה' },
+  { key: 'during', label: 'מסביב לשעון', hint: 'רגעי הגירוש — מעגל יחסי מתאריך מוקדם למאוחר' },
   { key: 'after', label: 'אחרי הגירוש', hint: 'הדרך עד לבית קבע' },
 ]
 
@@ -63,7 +63,7 @@ export default function PoiView() {
             <PhaseBlock title="מסביב לשעון — יום הגירוש" editor={editor} onAdd={() => setUploadOpen(true)} addLabel="הוספת רגע">
               <DayClock items={poi.during || []} settlementId={s.id} poiId={poi.id} />
               <div className="divider" />
-              <MediaGrid items={poi.during || []} mod={mod} session={session} onDelete={(m) => deleteMedia(s.id, poi.id, m)} settlementId={s.id} poiId={poi.id} empty="הוסיפו רגעים עם תווית שעה כדי לבנות את ציר היום." />
+              <MediaGrid items={poi.during || []} mod={mod} session={session} onDelete={(m) => deleteMedia(s.id, poi.id, m)} settlementId={s.id} poiId={poi.id} empty="הוסיפו רגעים עם תאריך ושעה כדי לבנות את המעגל היחסי סביב הגירוש." />
             </PhaseBlock>
           )}
 
@@ -82,7 +82,7 @@ export default function PoiView() {
         </motion.div>
       </div>
 
-      <Modal open={uploadOpen} onClose={() => setUploadOpen(false)} title={phase === 'during' ? 'הוספת רגע מיום הגירוש' : 'הוספת מדיה'} wide>
+      <Modal open={uploadOpen} onClose={() => setUploadOpen(false)} title={phase === 'during' ? 'הוספת רגע סביב הגירוש' : 'הוספת מדיה'} wide>
         <MediaUploader settlementId={s.id} poiId={poi.id} phase={phase} onDone={() => setUploadOpen(false)} />
       </Modal>
 
