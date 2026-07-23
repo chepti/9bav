@@ -301,7 +301,7 @@
 .closeup-head h3 { margin: 0; }
 .closeup-empty-note { text-align: center; margin-top: 10px; font-size: 0.86rem; }
 
-/* historical-overlay editor block inside the edit-meta modal */
+/* historical-image editor block inside the edit-meta modal */
 .hist-fields {
   border: 1px solid rgba(180, 130, 60, 0.2);
   border-radius: 12px;
@@ -313,6 +313,60 @@
   font-family: var(--font-display);
   color: var(--clay-800);
   font-size: 0.92rem;
+}
+
+/* "how it looked" before/after photo panel */
+.hist-photo {
+  margin: 0 0 16px;
+  padding: 10px;
+  text-align: center;
+}
+.hist-photo img {
+  max-width: 100%;
+  max-height: 520px;
+  border-radius: 10px;
+  display: inline-block;
+}
+.hist-photo figcaption { margin-top: 8px; font-size: 0.85rem; }
+
+/* area (polygon) tools + legend */
+.area-tools { margin-bottom: 6px; align-items: center; }
+.area-legend { margin-top: 8px; }
+.area-swatch {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  vertical-align: -1px;
+  margin-inline-end: 4px;
+}
+.area-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--sand-200);
+  color: var(--clay-800);
+  font-size: 0.8rem;
+}
+.area-del {
+  border: none;
+  background: none;
+  color: var(--ink-500);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 2px;
+}
+.area-del:hover { color: #d9534f; }
+.gk-area-label {
+  background: rgba(255, 253, 247, 0.9);
+  border: none;
+  box-shadow: var(--shadow-sm);
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  color: var(--clay-800);
 }
 
 /* ============ Breadcrumbs ============ */

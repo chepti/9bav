@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { getSettlement, setInfoSection, updateSettlementMeta, addPoi, movePoi, deletePoi, deleteSettlement } from '../../data/store.js'
+import { getSettlement, setInfoSection, updateSettlementMeta, addPoi, movePoi, deletePoi, deleteSettlement, addArea, deleteArea } from '../../data/store.js'
 import { useStore } from '../../data/store.js'
 import { useSession, canEdit, canModerate } from '../../data/session.js'
 import { SECTION_ICONS, IconPin, IconEdit, IconTrash } from '../ui/Icons.jsx'
+import { AREA_CATEGORIES, AREA_COLOR, AREA_LABEL } from '../../data/categories.js'
+import { imageSrc } from '../../data/media.js'
+import { uploadToDrive, isDriveConfigured } from '../../data/drive.js'
 import Modal from '../ui/Modal.jsx'
 import Breadcrumbs from '../ui/Breadcrumbs.jsx'
 import LeafletMap from '../Map/LeafletMap.jsx'
@@ -19,6 +22,15 @@ const SECTIONS = [
 
 const REGION_LABEL = { gush_katif: 'גוש קטיף', northern_samaria: 'צפון השומרון' }
 
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
 export default function SettlementView() {
   useStore() // subscribe to updates
   const { id } = useParams()
@@ -32,18 +44,18 @@ export default function SettlementView() {
   const [moveMode, setMoveMode] = useState(false)
   const [poiDraft, setPoiDraft] = useState(null)
   const [poiTitle, setPoiTitle] = useState('')
-  // when a 2005 aerial exists, show it by default (the site's whole purpose)
-  const [showHistorical, setShowHistorical] = useState(true)
+  // area drawing: drawCat = the category being drawn (null when idle)
+  const [drawCat, setDrawCat] = useState(null)
+  const [draftPoints, setDraftPoints] = useState([])
 
   if (!s) return <div className="page-pad">היישוב לא נמצא. <button className="pill ghost" onClick={() => navigate('/')}>חזרה למפה</button></div>
 
   const mod = canModerate(session.role)
   const editor = canEdit(session.role)
   const section = s.info.find((i) => i.key === tab)
-  const overlay = s.historical?.url && s.historical?.bounds
-    ? { url: s.historical.url, bounds: s.historical.bounds, opacity: s.historical.opacity ?? 1 }
-    : null
-  const histYear = s.historical?.year || '2005'
+  const hist = s.historical
+  const histSrc = hist && (hist.url || hist.driveId) ? imageSrc(hist) : null
+  const areas = s.areas || []
 
   function confirmPoi() {
     if (!poiTitle.trim() || !poiDraft) return
@@ -52,6 +64,21 @@ export default function SettlementView() {
     setPoiTitle('')
     setPinMode(false)
     navigate(`/poi/${s.id}/${poiId}`)
+  }
+
+  function startDraw(cat) {
+    setDrawCat(cat)
+    setDraftPoints([])
+    setPinMode(false)
+    setMoveMode(false)
+  }
+  function cancelDraw() {
+    setDrawCat(null)
+    setDraftPoints([])
+  }
+  function finishArea() {
+    if (draftPoints.length >= 3) addArea(s.id, { category: drawCat, points: draftPoints })
+    cancelDraw()
   }
 
   return (
@@ -73,6 +100,15 @@ export default function SettlementView() {
         </div>
       </div>
 
+      {histSrc && (
+        <figure className="hist-photo card">
+          <img src={histSrc} alt={`${s.name} — כך היה`} loading="lazy" />
+          <figcaption className="muted">
+            {hist.caption || `${s.name} — כך נראה היישוב (${hist.year || '2005'})`}
+          </figcaption>
+        </figure>
+      )}
+
       <div className="settlement-grid">
         <div className="info-col card">
           <div className="row wrap gap-6" style={{ padding: '4px 4px 12px' }}>
@@ -92,22 +128,43 @@ export default function SettlementView() {
           <div className="closeup-head row wrap gap-6">
             <h3>נקודות עניין</h3>
             <span className="grow" />
-            {overlay && (
-              <button className={`pill ${showHistorical ? 'is-active' : 'ghost'}`} onClick={() => setShowHistorical((v) => !v)} title="מעבר בין תצלום הגירוש למפה של היום">
-                {showHistorical ? `תצלום ${histYear}` : 'מפה עכשווית'}
-              </button>
-            )}
             {editor && (
-              <button className={`pill ${pinMode ? 'is-active' : 'ghost'}`} onClick={() => { setPinMode((v) => !v); setMoveMode(false) }}>
+              <button className={`pill ${pinMode ? 'is-active' : 'ghost'}`} onClick={() => { setPinMode((v) => !v); setMoveMode(false); cancelDraw() }}>
                 <IconPin width={14} height={14} /> {pinMode ? 'בחרו מיקום…' : 'הוספת נקודה'}
               </button>
             )}
             {mod && s.pois.length > 0 && (
-              <button className={`pill ${moveMode ? 'is-active' : 'ghost'}`} onClick={() => { setMoveMode((v) => !v); setPinMode(false) }}>
+              <button className={`pill ${moveMode ? 'is-active' : 'ghost'}`} onClick={() => { setMoveMode((v) => !v); setPinMode(false); cancelDraw() }}>
                 <IconEdit width={14} height={14} /> {moveMode ? 'גררו נקודה ושחררו' : 'הזזה'}
               </button>
             )}
           </div>
+
+          {mod && (
+            <div className="area-tools row wrap gap-6">
+              {drawCat ? (
+                <>
+                  <span className="pill sm is-active"><span className="area-swatch" style={{ background: AREA_COLOR[drawCat] }} /> מסמן: {AREA_LABEL[drawCat]}</span>
+                  <button className="pill ghost sm" onClick={() => setDraftPoints((p) => p.slice(0, -1))} disabled={!draftPoints.length}>ביטול נקודה</button>
+                  <button className="pill sm is-active" onClick={finishArea} disabled={draftPoints.length < 3}>סיום ושמירה</button>
+                  <button className="pill ghost sm" onClick={cancelDraw}>ביטול</button>
+                </>
+              ) : (
+                <>
+                  <span className="muted" style={{ fontSize: '0.82rem' }}>סימון אזור:</span>
+                  {AREA_CATEGORIES.map((c) => (
+                    <button key={c.key} className="pill ghost sm" onClick={() => startDraw(c.key)}>
+                      <span className="area-swatch" style={{ background: c.color }} /> {c.label}
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+          {drawCat && (
+            <p className="muted" style={{ fontSize: '0.8rem', margin: '2px 0 6px' }}>לחצו על המפה כדי להוסיף פינות לאזור (לפחות 3), ואז "סיום ושמירה".</p>
+          )}
+
           <LeafletMap
             className="closeup-map"
             closeup
@@ -116,15 +173,27 @@ export default function SettlementView() {
             markers={s.pois.map((p) => ({ id: p.id, lat: p.lat, lng: p.lng, label: p.title, kind: 'poi' }))}
             pinMode={pinMode}
             draggableMarkers={moveMode}
-            overlay={overlay}
-            showOverlay={!!overlay && showHistorical}
+            areas={areas}
+            draftArea={drawCat ? { category: drawCat, points: draftPoints } : null}
+            drawMode={!!drawCat}
+            onDrawClick={(latlng) => setDraftPoints((p) => [...p, [latlng.lat, latlng.lng]])}
             onMarkerClick={(m) => navigate(`/poi/${s.id}/${m.id}`)}
             onMapClick={(latlng) => setPoiDraft({ lat: latlng.lat, lng: latlng.lng })}
             onMarkerMove={(m, latlng) => movePoi(s.id, m.id, latlng.lat, latlng.lng)}
           />
-          {overlay && showHistorical && (
-            <p className="muted" style={{ fontSize: '0.8rem', margin: '6px 0 0' }}>מוצג תצלום אוויר מ־{histYear}. לחצו "מפה עכשווית" למעבר למפה של היום.</p>
+
+          {areas.length > 0 && (
+            <div className="area-legend row wrap gap-8">
+              {areas.map((a) => (
+                <span key={a.id} className="area-chip">
+                  <span className="area-swatch" style={{ background: AREA_COLOR[a.category] || AREA_COLOR.general }} />
+                  {a.label || AREA_LABEL[a.category] || a.category}
+                  {mod && <button className="area-del" title="מחיקת אזור" onClick={() => deleteArea(s.id, a.id)}>×</button>}
+                </span>
+              ))}
+            </div>
           )}
+
           {s.pois.length === 0 && !pinMode && (
             <p className="closeup-empty-note muted">אין עדיין נקודות עניין. {editor ? 'לחצו "הוספת נקודה" ואז על המפה כדי לסמן בית או אתר.' : 'התחברו כדי להוסיף.'}</p>
           )}
@@ -202,33 +271,47 @@ function SectionBody({ settlementId, sectionKey, body, canEdit }) {
 function EditMetaModal({ open, onClose, settlement }) {
   const navigate = useNavigate()
   const [form, setForm] = useState({})
+  const [imgBusy, setImgBusy] = useState(false)
+  const [imgErr, setImgErr] = useState('')
   const s = settlement
   const val = (k) => (form[k] !== undefined ? form[k] : s[k] ?? '')
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
-  // historical-overlay fields (nested under s.historical)
+  // historical image fields (nested under s.historical)
   const h = s.historical || {}
-  const hInit = {
-    url: h.url ?? '',
-    south: h.bounds?.[0]?.[0] ?? '',
-    west: h.bounds?.[0]?.[1] ?? '',
-    north: h.bounds?.[1]?.[0] ?? '',
-    east: h.bounds?.[1]?.[1] ?? '',
-    opacity: h.opacity ?? '',
-    year: h.year ?? '',
-  }
+  const hInit = { url: h.url ?? '', driveId: h.driveId ?? '', caption: h.caption ?? '', year: h.year ?? '' }
   const hval = (k) => (form['h_' + k] !== undefined ? form['h_' + k] : hInit[k])
   const hset = (k) => (e) => setForm((f) => ({ ...f, ['h_' + k]: e.target.value }))
+  const previewSrc = hval('driveId') ? imageSrc({ driveId: hval('driveId') }) : hval('url')
+
+  async function onHistFile(e) {
+    const f = e.target.files?.[0]
+    if (!f) return
+    setImgBusy(true)
+    setImgErr('')
+    try {
+      if (isDriveConfigured) {
+        const up = await uploadToDrive(f)
+        setForm((fm) => ({ ...fm, h_driveId: up.id, h_url: up.url }))
+      } else {
+        const dataUrl = await fileToDataUrl(f)
+        setForm((fm) => ({ ...fm, h_driveId: '', h_url: dataUrl }))
+      }
+    } catch {
+      setImgErr('ההעלאה נכשלה. נסו קובץ קטן יותר, או הדביקו קישור.')
+    } finally {
+      setImgBusy(false)
+    }
+  }
 
   function save() {
-    const hUrl = String(hval('url')).trim()
-    const nums = ['south', 'west', 'north', 'east'].map((k) => Number(hval(k)))
-    const boundsOk = nums.every((n) => Number.isFinite(n))
-    const historical = hUrl && boundsOk
+    const url = String(hval('url')).trim()
+    const driveId = String(hval('driveId')).trim()
+    const historical = (url || driveId)
       ? {
-          url: hUrl,
-          bounds: [[nums[0], nums[1]], [nums[2], nums[3]]],
-          opacity: hval('opacity') === '' ? 0.9 : Number(hval('opacity')),
+          url: url || undefined,
+          driveId: driveId || undefined,
+          caption: String(hval('caption')).trim() || undefined,
           year: String(hval('year')).trim() || '2005',
         }
       : null
@@ -241,6 +324,10 @@ function EditMetaModal({ open, onClose, settlement }) {
     })
     setForm({})
     onClose()
+  }
+
+  function removeHist() {
+    setForm((f) => ({ ...f, h_url: '', h_driveId: '' }))
   }
 
   function remove() {
@@ -260,30 +347,35 @@ function EditMetaModal({ open, onClose, settlement }) {
         </div>
         <div><label className="lbl">לאן פונו</label><input className="field" value={val('evacuatedTo')} onChange={set('evacuatedTo')} /></div>
 
-        <details className="hist-fields">
-          <summary>תצלום אוויר היסטורי (2005) על המפה</summary>
+        <details className="hist-fields" open>
+          <summary>תמונת "כך היה היישוב" (לפני / אחרי)</summary>
           <div className="stack gap-10" style={{ marginTop: 10 }}>
-            <div><label className="lbl">כתובת התמונה (URL)</label><input className="field" dir="ltr" value={hval('url')} onChange={hset('url')} placeholder="https://… או קישור ל-Drive" /></div>
-            <p className="muted" style={{ fontSize: '0.78rem', margin: 0 }}>גבולות גאוגרפיים של התמונה (קווי אורך/רוחב של הפינות):</p>
-            <div className="row gap-10 wrap">
-              <div style={{ flex: 1, minWidth: 120 }}><label className="lbl">רוחב צפוני (north)</label><input className="field" dir="ltr" type="number" step="any" value={hval('north')} onChange={hset('north')} placeholder="31.42" /></div>
-              <div style={{ flex: 1, minWidth: 120 }}><label className="lbl">רוחב דרומי (south)</label><input className="field" dir="ltr" type="number" step="any" value={hval('south')} onChange={hset('south')} placeholder="31.40" /></div>
+            <p className="muted" style={{ fontSize: '0.8rem', margin: 0 }}>
+              העלו תמונה מהמחשב (למשל תצלום השוואה לפני/אחרי), או הדביקו קישור. התמונה תוצג בראש דף היישוב.
+            </p>
+            <div>
+              <label className="lbl">העלאת תמונה</label>
+              <input type="file" accept="image/*" onChange={onHistFile} disabled={imgBusy} />
+              {imgBusy && <p className="muted" style={{ fontSize: '0.8rem', marginTop: 6 }}>מעלה…</p>}
             </div>
+            <div><label className="lbl">או קישור לתמונה (URL)</label><input className="field" dir="ltr" value={hval('url')} onChange={hset('url')} placeholder="https://…" /></div>
+            {previewSrc && (
+              <div className="stack gap-6">
+                <img src={previewSrc} alt="תצוגה מקדימה" style={{ maxWidth: '100%', borderRadius: 10 }} />
+                <button className="pill ghost sm" onClick={removeHist} type="button" style={{ alignSelf: 'flex-start' }}>הסרת התמונה</button>
+              </div>
+            )}
             <div className="row gap-10 wrap">
-              <div style={{ flex: 1, minWidth: 120 }}><label className="lbl">אורך מזרחי (east)</label><input className="field" dir="ltr" type="number" step="any" value={hval('east')} onChange={hset('east')} placeholder="34.30" /></div>
-              <div style={{ flex: 1, minWidth: 120 }}><label className="lbl">אורך מערבי (west)</label><input className="field" dir="ltr" type="number" step="any" value={hval('west')} onChange={hset('west')} placeholder="34.27" /></div>
+              <div style={{ flex: 2, minWidth: 160 }}><label className="lbl">כיתוב (רשות)</label><input className="field" value={hval('caption')} onChange={hset('caption')} placeholder="למשל: נצרים, לפני ואחרי" /></div>
+              <div style={{ flex: 1, minWidth: 90 }}><label className="lbl">שנה</label><input className="field" dir="ltr" value={hval('year')} onChange={hset('year')} placeholder="2005" /></div>
             </div>
-            <div className="row gap-10 wrap">
-              <div style={{ flex: 1, minWidth: 120 }}><label className="lbl">שקיפות (0–1)</label><input className="field" dir="ltr" type="number" step="0.05" min="0" max="1" value={hval('opacity')} onChange={hset('opacity')} placeholder="0.9" /></div>
-              <div style={{ flex: 1, minWidth: 120 }}><label className="lbl">שנת התצלום</label><input className="field" dir="ltr" value={hval('year')} onChange={hset('year')} placeholder="2005" /></div>
-            </div>
-            <p className="muted" style={{ fontSize: '0.76rem', margin: 0 }}>להסרת התצלום — נקו את שדה הכתובת ושמרו.</p>
+            {imgErr && <p style={{ color: '#d9534f', fontSize: '0.85rem', margin: 0 }}>{imgErr}</p>}
           </div>
         </details>
 
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <button className="btn btn-soft danger-btn" onClick={remove}><IconTrash width={15} height={15} /> מחיקת יישוב</button>
-          <button className="btn btn-primary" onClick={save}>שמירה</button>
+          <button className="btn btn-primary" onClick={save} disabled={imgBusy}>שמירה</button>
         </div>
       </div>
     </Modal>

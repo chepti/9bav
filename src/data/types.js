@@ -54,11 +54,19 @@
  */
 
 /**
- * @typedef {Object} HistoricalOverlay // a georeferenced 2005-era aerial photo
- * @property {string} url               // image source (data-URL, Drive/https link)
- * @property {[[number,number],[number,number]]} bounds // [[southLat,westLng],[northLat,eastLng]]
- * @property {number} [opacity]         // 0..1, default 1
- * @property {string} [year]            // label, default "2005"
+ * @typedef {Object} HistoricalImage // a "how it looked in 2005" before/after photo
+ * @property {string} [url]           // image source (data-URL or https link)
+ * @property {string} [driveId]       // Google Drive file id (live mode uploads)
+ * @property {string} [caption]       // optional caption
+ * @property {string} [year]          // label, default "2005"
+ */
+
+/**
+ * @typedef {Object} Area // a colored polygon marking where a function was located
+ * @property {string} id
+ * @property {'agriculture'|'education'|'community'|'commerce'|'general'} category
+ * @property {[number,number][]} points // [[lat,lng], …] polygon vertices
+ * @property {string} [label]           // optional free-text label
  */
 
 /**
@@ -72,7 +80,8 @@
  * @property {number} [founded]
  * @property {string} [evacuatedTo]
  * @property {string} [tagline]
- * @property {HistoricalOverlay} [historical] // optional 2005 aerial overlay
+ * @property {HistoricalImage} [historical] // optional "how it looked" photo
+ * @property {Area[]} [areas]     // optional map-area polygons
  * @property {InfoSection[]} info
  * @property {string[]} moderators
  * @property {Poi[]} pois

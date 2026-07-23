@@ -146,6 +146,23 @@ export function moveSettlement(id, lat, lng) {
   mutateSettlement(id, (s) => ({ ...s, lat, lng }))
 }
 
+export function addArea(settlementId, { category, points, label }) {
+  const areaId = uid('area')
+  mutateSettlement(settlementId, (s) => {
+    if (!Array.isArray(s.areas)) s.areas = []
+    s.areas.push({ id: areaId, category, points, label: label || '' })
+    return s
+  })
+  return areaId
+}
+
+export function deleteArea(settlementId, areaId) {
+  mutateSettlement(settlementId, (s) => {
+    s.areas = (s.areas || []).filter((a) => a.id !== areaId)
+    return s
+  })
+}
+
 export function setInfoSection(settlementId, key, body) {
   mutateSettlement(settlementId, (s) => {
     if (!Array.isArray(s.info)) s.info = []

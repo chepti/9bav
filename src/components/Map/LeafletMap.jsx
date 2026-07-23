@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { AREA_COLOR } from '../../data/categories.js'
 
 // Reusable Leaflet map. Used both for the regional overview and the settlement
 // close-up. Markers are custom divIcons (dot + always-visible label that grows
@@ -29,14 +30,15 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 }
 
-export default function LeafletMap({ markers = [], onMarkerClick, onMapClick, onMarkerMove, draggableMarkers = false, pinMode = false, closeup = false, center = null, fitKey = null, overlay = null, showOverlay = false, className = '' }) {
+export default function LeafletMap({ markers = [], onMarkerClick, onMapClick, onMarkerMove, draggableMarkers = false, pinMode = false, closeup = false, center = null, fitKey = null, overlay = null, showOverlay = false, areas = [], draftArea = null, drawMode = false, onDrawClick, className = '' }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const groupRef = useRef(null)
+  const areasGroupRef = useRef(null)
   const overlayRef = useRef(null)
   const lastFitKey = useRef(undefined) // only auto-fit the view when this changes
   const cbRef = useRef({})
-  cbRef.current = { onMarkerClick, onMapClick, onMarkerMove, draggableMarkers, pinMode }
+  cbRef.current = { onMarkerClick, onMapClick, onMarkerMove, draggableMarkers, pinMode, drawMode, onDrawClick }
 
   // init map once
   useEffect(() => {
@@ -48,11 +50,15 @@ export default function LeafletMap({ markers = [], onMarkerClick, onMapClick, on
     })
     L.tileLayer(TILE_URL, { attribution: TILE_ATTR, subdomains: 'abcd', maxZoom: 19 }).addTo(map)
     map.setView([31.4, 34.35], 11) // provisional; fitBounds runs once markers arrive
+    // areas below markers; keep them in their own group so a marker redraw
+    // (or an area redraw) never wipes the other layer.
+    areasGroupRef.current = L.layerGroup().addTo(map)
     groupRef.current = L.layerGroup().addTo(map)
     mapRef.current = map
 
     map.on('click', (e) => {
-      if (cbRef.current.pinMode) cbRef.current.onMapClick?.(e.latlng)
+      if (cbRef.current.drawMode) cbRef.current.onDrawClick?.(e.latlng)
+      else if (cbRef.current.pinMode) cbRef.current.onMapClick?.(e.latlng)
     })
 
     // keep size correct when the container settles / resizes
@@ -66,13 +72,43 @@ export default function LeafletMap({ markers = [], onMarkerClick, onMapClick, on
       map.remove()
       mapRef.current = null
       groupRef.current = null
+      areasGroupRef.current = null
     }
   }, [])
 
-  // reflect pin-mode as a class on the container (cursor + affordance)
+  // reflect pin/draw mode as a class on the container (crosshair cursor)
   useEffect(() => {
-    containerRef.current?.classList.toggle('is-pinning', pinMode)
-  }, [pinMode])
+    containerRef.current?.classList.toggle('is-pinning', pinMode || drawMode)
+  }, [pinMode, drawMode])
+
+  // draw category-colored area polygons + the in-progress draft
+  const areasKey = JSON.stringify(areas)
+  const draftKey = JSON.stringify(draftArea)
+  useEffect(() => {
+    const map = mapRef.current
+    const group = areasGroupRef.current
+    if (!map || !group) return
+    group.clearLayers()
+
+    areas.forEach((a) => {
+      if (!a.points || a.points.length < 3) return
+      const color = AREA_COLOR[a.category] || AREA_COLOR.general
+      const poly = L.polygon(a.points, { color, weight: 2, fillColor: color, fillOpacity: 0.3, interactive: !!a.label })
+      if (a.label) poly.bindTooltip(a.label, { direction: 'center', className: 'gk-area-label', permanent: true })
+      poly.addTo(group)
+    })
+
+    if (draftArea?.points?.length) {
+      const color = AREA_COLOR[draftArea.category] || AREA_COLOR.general
+      if (draftArea.points.length >= 2) {
+        L.polygon(draftArea.points, { color, weight: 2, dashArray: '5,6', fillColor: color, fillOpacity: 0.18, interactive: false }).addTo(group)
+      }
+      draftArea.points.forEach((pt) => {
+        L.circleMarker(pt, { radius: 4, color, weight: 2, fillColor: '#fff', fillOpacity: 1 }).addTo(group)
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [areasKey, draftKey])
 
   // historical aerial photo overlay (rendered in overlayPane, below the marker
   // pane, so pins stay visible on top). Toggled via showOverlay.
