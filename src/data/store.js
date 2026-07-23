@@ -356,6 +356,37 @@ export function deleteMedia(settlementId, poiId, mediaId) {
   })
 }
 
+// Settlement-level gallery (below the fold). Community can add photos/videos;
+// Wikipedia imports also land here.
+export function addSettlementMedia(settlementId, item) {
+  const id = uid('gal')
+  mutateSettlement(settlementId, (s) => {
+    if (!Array.isArray(s.gallery)) s.gallery = []
+    s.gallery.push({
+      id,
+      type: item.type || 'photo',
+      url: item.url || undefined,
+      driveId: item.driveId || undefined,
+      thumb: item.thumb || undefined,
+      caption: item.caption || item.title || '',
+      credit: item.credit || '',
+      authorName: item.authorName || '',
+      authorKey: item.authorKey || undefined,
+      sourceUrl: item.sourceUrl || undefined,
+      createdAt: Date.now(),
+    })
+    return s
+  })
+  return id
+}
+
+export function deleteSettlementMedia(settlementId, mediaId) {
+  mutateSettlement(settlementId, (s) => {
+    s.gallery = (s.gallery || []).filter((g) => g.id !== mediaId)
+    return s
+  })
+}
+
 // Toggle a nostalgic "heart" on a media item. userKey is uid (live) or display name (local).
 export function toggleMediaHeart(settlementId, poiId, mediaId, userKey) {
   if (!userKey) return

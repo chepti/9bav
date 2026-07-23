@@ -625,10 +625,14 @@
 }
 .settlement-media-head h2 { margin: 0; font-size: 1.25rem; }
 .settlement-media-head .muted { font-size: 0.84rem; }
+.settlement-media-head .grow { flex: 1 1 auto; min-width: 8px; }
 .wiki-gallery {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 12px;
+}
+.wiki-tile-wrap {
+  position: relative;
 }
 .wiki-tile {
   display: block;
@@ -654,6 +658,39 @@
   aspect-ratio: 4 / 3;
   object-fit: cover;
   background: var(--sand-200);
+}
+.wiki-tile-video {
+  position: relative;
+}
+.wiki-tile-play {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 1.6rem;
+  color: #fff;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55);
+  background: linear-gradient(180deg, transparent 40%, rgba(0, 0, 0, 0.28));
+  pointer-events: none;
+}
+.wiki-tile-del {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: none;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: #fff;
+  background: rgba(40, 20, 10, 0.55);
+  backdrop-filter: blur(4px);
+}
+.wiki-tile-del:hover {
+  background: #d9534f;
 }
 .wiki-tile figcaption {
   padding: 8px 10px 10px;

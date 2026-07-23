@@ -95,11 +95,16 @@
 /**
  * @typedef {Object} GalleryItem
  * @property {string} id
- * @property {string} url
+ * @property {'photo'|'video'|'document'|string} [type]
+ * @property {string} [url]
+ * @property {string} [driveId]
  * @property {string} [thumb]
  * @property {string} [caption]
  * @property {string} [credit]
+ * @property {string} [authorName]
+ * @property {string} [authorKey]
  * @property {string} [sourceUrl]
+ * @property {number} [createdAt]
  */
 
 export {}

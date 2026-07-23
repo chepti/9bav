@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { getSettlement, setInfoSectionFull, updateSettlementMeta, addPoi, deletePoi, deleteSettlement, addArea, deleteArea } from '../../data/store.js'
+import { getSettlement, setInfoSectionFull, updateSettlementMeta, addPoi, deletePoi, deleteSettlement, addArea, deleteArea, addSettlementMedia, deleteSettlementMedia } from '../../data/store.js'
 import { useStore } from '../../data/store.js'
-import { useSession, canEdit, canModerate } from '../../data/session.js'
+import { useSession, canEdit, canModerate, authorKey } from '../../data/session.js'
 import { SECTION_ICONS, IconPin, IconEdit, IconTrash, IconPlus, IconClock } from '../ui/Icons.jsx'
 import { AREA_CATEGORIES, AREA_COLOR, AREA_LABEL } from '../../data/categories.js'
-import { imageSrc } from '../../data/media.js'
+import { imageSrc, youtubeIdFromUrl } from '../../data/media.js'
 import { sortEntriesByYear } from '../../data/timeline.js'
 import { uploadToDrive, isDriveConfigured } from '../../data/drive.js'
 import Modal from '../ui/Modal.jsx'
@@ -237,7 +237,13 @@ export default function SettlementView() {
         </div>
       </div>
 
-      <SettlementGallery gallery={s.gallery || []} settlementName={s.name} />
+      <SettlementGallery
+        settlementId={s.id}
+        gallery={s.gallery || []}
+        settlementName={s.name}
+        canAdd={editor}
+        canDelete={mod}
+      />
 
       <Modal open={!!poiDraft} onClose={() => setPoiDraft(null)} title="נקודת עניין חדשה">
         <div className="stack gap-12">
@@ -257,50 +263,174 @@ export default function SettlementView() {
   )
 }
 
-function SettlementGallery({ gallery, settlementName }) {
+function SettlementGallery({ settlementId, gallery, settlementName, canAdd, canDelete }) {
   const [lbId, setLbId] = useState(null)
-  if (!gallery?.length) return null
+  const [uploadOpen, setUploadOpen] = useState(false)
+
+  if (!gallery?.length && !canAdd) return null
 
   const items = gallery.map((g) => ({
     id: g.id,
-    type: 'photo',
+    type: g.type || 'photo',
     title: g.caption || settlementName,
     url: g.url,
+    driveId: g.driveId,
     body: g.credit ? `קרדיט: ${g.credit}` : '',
-    authorName: g.credit || 'ויקיפדיה',
+    authorName: g.authorName || g.credit || '',
   }))
+
+  const hasWiki = gallery.some((g) => /ויקי/.test(g.credit || ''))
 
   return (
     <section className="settlement-media card">
       <div className="settlement-media-head">
         <h2>מדיה מהיישוב</h2>
-        <span className="muted">תמונות מתוך ויקיפדיה וויקישיתוף</span>
-      </div>
-      <div className="wiki-gallery">
-        {gallery.map((g) => (
-          <button key={g.id} type="button" className="wiki-tile" onClick={() => setLbId(g.id)} title={g.caption || 'הגדלה'}>
-            <img src={g.thumb || g.url} alt={g.caption || settlementName} loading="lazy" />
-            {(g.caption || g.credit) && (
-              <figcaption>
-                {g.caption || ''}
-                {g.caption && g.credit ? ' · ' : ''}
-                {g.credit || ''}
-              </figcaption>
-            )}
+        <span className="muted">תמונות וזיכרונות מהמקום</span>
+        <span className="grow" />
+        {canAdd && (
+          <button type="button" className="pill is-active" onClick={() => setUploadOpen(true)}>
+            <IconPlus width={14} height={14} /> הוספת מדיה
           </button>
-        ))}
+        )}
       </div>
-      <p className="muted settlement-gallery-credit">
-        מקור התמונות: ויקיפדיה / ויקישיתוף ·{' '}
-        <a href="https://he.wikipedia.org/" target="_blank" rel="noopener noreferrer">רישיון חופשי</a>
-      </p>
+
+      {gallery.length > 0 ? (
+        <div className="wiki-gallery">
+          {gallery.map((g) => (
+            <div key={g.id} className="wiki-tile-wrap">
+              <button type="button" className="wiki-tile" onClick={() => setLbId(g.id)} title={g.caption || 'הגדלה'}>
+                {(g.type || 'photo') === 'video' ? (
+                  <div className="wiki-tile-video">
+                    {g.driveId || g.url
+                      ? <img src={imageSrc({ driveId: g.driveId, url: g.thumb || g.url })} alt={g.caption || ''} loading="lazy" />
+                      : null}
+                    <span className="wiki-tile-play">▶</span>
+                  </div>
+                ) : (
+                  <img src={imageSrc({ driveId: g.driveId, url: g.thumb || g.url })} alt={g.caption || settlementName} loading="lazy" />
+                )}
+                {(g.caption || g.credit || g.authorName) && (
+                  <figcaption>
+                    {g.caption || ''}
+                    {(g.caption && (g.credit || g.authorName)) ? ' · ' : ''}
+                    {g.credit || g.authorName || ''}
+                  </figcaption>
+                )}
+              </button>
+              {canDelete && (
+                <button
+                  type="button"
+                  className="wiki-tile-del"
+                  title="מחיקה"
+                  onClick={() => { if (confirm('למחוק את הפריט מהגלריה?')) deleteSettlementMedia(settlementId, g.id) }}
+                >
+                  <IconTrash width={13} height={13} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="muted wiki-empty">עדיין אין מדיה ליישוב. הוסיפו תמונה ראשונה.</p>
+      )}
+
+      {hasWiki && (
+        <p className="muted settlement-gallery-credit">
+          חלק מהתמונות ממקורות ויקיפדיה / ויקישיתוף ·{' '}
+          <a href="https://he.wikipedia.org/" target="_blank" rel="noopener noreferrer">רישיון חופשי</a>
+        </p>
+      )}
+
       <MediaLightbox
         items={items}
         currentId={lbId}
         onClose={() => setLbId(null)}
         onNavigate={setLbId}
       />
+
+      <Modal open={uploadOpen} onClose={() => setUploadOpen(false)} title="הוספת מדיה ליישוב" wide>
+        <SettlementMediaForm settlementId={settlementId} onDone={() => setUploadOpen(false)} />
+      </Modal>
     </section>
+  )
+}
+
+function SettlementMediaForm({ settlementId, onDone }) {
+  const session = useSession()
+  const [type, setType] = useState('photo')
+  const [caption, setCaption] = useState('')
+  const [file, setFile] = useState(null)
+  const [youtubeUrl, setYoutubeUrl] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const ytId = youtubeIdFromUrl(youtubeUrl)
+
+  async function submit() {
+    setBusy(true)
+    setErr('')
+    try {
+      const item = {
+        type,
+        caption: caption.trim(),
+        authorName: session.name || 'אנונימי',
+        authorKey: authorKey(session) || undefined,
+        credit: session.name || '',
+      }
+      if (type === 'video' && ytId && !file) {
+        item.url = `https://www.youtube.com/watch?v=${ytId}`
+      } else if (file) {
+        if (isDriveConfigured) {
+          const up = await uploadToDrive(file)
+          item.url = up.url
+          item.driveId = up.id
+        } else {
+          item.url = await fileToDataUrl(file)
+        }
+      } else {
+        throw new Error('missing file')
+      }
+      addSettlementMedia(settlementId, item)
+      onDone?.()
+    } catch (e) {
+      console.error(e)
+      setErr('ההעלאה נכשלה. נסו שוב, או קובץ קטן יותר.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const valid = type === 'video' ? (!!file || !!ytId) : !!file
+
+  return (
+    <div className="stack gap-14">
+      <div className="row wrap gap-6">
+        <button type="button" className={`pill ${type === 'photo' ? 'is-active' : 'ghost'}`} onClick={() => { setType('photo'); setFile(null); setYoutubeUrl('') }}>תמונה</button>
+        <button type="button" className={`pill ${type === 'video' ? 'is-active' : 'ghost'}`} onClick={() => { setType('video'); setFile(null) }}>וידאו</button>
+      </div>
+      <div>
+        <label className="lbl">כותרת / תיאור קצר (רשות)</label>
+        <input className="field" value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="למשל: בית הכנסת, החממות, השקיעה על הים" />
+      </div>
+      {type === 'video' && (
+        <div>
+          <label className="lbl">קישור יוטיוב (או העלאת קובץ למטה)</label>
+          <input className="field" value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} placeholder="https://www.youtube.com/watch?v=…" dir="ltr" />
+        </div>
+      )}
+      <div>
+        <label className="lbl">{type === 'photo' ? 'בחירת תמונה' : 'קובץ וידאו (רשות אם יש יוטיוב)'}</label>
+        <input className="field" type="file" accept={type === 'photo' ? 'image/*' : 'video/*'} onChange={(e) => setFile(e.target.files?.[0] || null)} />
+        {file && <p className="muted" style={{ fontSize: '0.8rem', marginTop: 6 }}>{file.name}</p>}
+      </div>
+      {err && <p style={{ color: '#d9534f', fontSize: '0.85rem' }}>{err}</p>}
+      <div className="row gap-8" style={{ justifyContent: 'flex-end' }}>
+        <button type="button" className="btn btn-soft" onClick={onDone} disabled={busy}>ביטול</button>
+        <button type="button" className="btn btn-primary" disabled={!valid || busy} onClick={submit}>
+          {busy ? 'מעלה…' : 'הוספה'}
+        </button>
+      </div>
+      <p className="muted" style={{ fontSize: '0.78rem' }}>הפריט יפורסם מיד בגלריית היישוב.</p>
+    </div>
   )
 }
 
