@@ -191,7 +191,10 @@ export function setInfoSectionFull(settlementId, key, { body, entries }) {
   })
 }
 
-export function addPoi(settlementId, { title, lat, lng, authorName }) {
+// POIs are placed on the settlement's historical photo, so position is stored
+// as a relative percentage (x,y in 0..100) of the image — not lat/lng. This
+// keeps a point in the same spot when toggling between year layers.
+export function addPoi(settlementId, { title, x, y, authorName }) {
   const poiId = uid('poi')
   mutateSettlement(settlementId, (s) => {
     if (!Array.isArray(s.pois)) s.pois = []
@@ -199,8 +202,8 @@ export function addPoi(settlementId, { title, lat, lng, authorName }) {
       id: poiId,
       settlementId,
       title,
-      lat,
-      lng,
+      x,
+      y,
       authorName: authorName || 'אנונימי',
       before: [],
       during: [],
@@ -211,12 +214,12 @@ export function addPoi(settlementId, { title, lat, lng, authorName }) {
   return poiId
 }
 
-export function movePoi(settlementId, poiId, lat, lng) {
+export function movePoi(settlementId, poiId, x, y) {
   mutateSettlement(settlementId, (s) => {
     const p = s.pois.find((p) => p.id === poiId)
     if (p) {
-      p.lat = lat
-      p.lng = lng
+      p.x = x
+      p.y = y
     }
     return s
   })

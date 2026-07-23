@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { getSettlement, setInfoSection, setInfoSectionFull, updateSettlementMeta, addPoi, movePoi, deletePoi, deleteSettlement, addArea, deleteArea } from '../../data/store.js'
+import { getSettlement, setInfoSectionFull, updateSettlementMeta, addPoi, deletePoi, deleteSettlement, addArea, deleteArea } from '../../data/store.js'
 import { useStore } from '../../data/store.js'
 import { useSession, canEdit, canModerate } from '../../data/session.js'
 import { SECTION_ICONS, IconPin, IconEdit, IconTrash, IconPlus, IconClock } from '../ui/Icons.jsx'
@@ -10,7 +10,7 @@ import { imageSrc } from '../../data/media.js'
 import { uploadToDrive, isDriveConfigured } from '../../data/drive.js'
 import Modal from '../ui/Modal.jsx'
 import Breadcrumbs from '../ui/Breadcrumbs.jsx'
-import LeafletMap from '../Map/LeafletMap.jsx'
+import ImageMap from '../Map/ImageMap.jsx'
 
 const SECTIONS = [
   { key: 'general', label: 'כללי' },
@@ -41,25 +41,33 @@ export default function SettlementView() {
   const [tab, setTab] = useState('general')
   const [editMeta, setEditMeta] = useState(false)
   const [pinMode, setPinMode] = useState(false)
-  const [moveMode, setMoveMode] = useState(false)
-  const [poiDraft, setPoiDraft] = useState(null)
+  const [poiDraft, setPoiDraft] = useState(null) // { x, y } percentage on the photo
   const [poiTitle, setPoiTitle] = useState('')
   // area drawing: drawCat = the category being drawn (null when idle)
   const [drawCat, setDrawCat] = useState(null)
   const [draftPoints, setDraftPoints] = useState([])
+  const [activeYear, setActiveYear] = useState(null)
 
   if (!s) return <div className="page-pad">היישוב לא נמצא. <button className="pill ghost" onClick={() => navigate('/')}>חזרה למפה</button></div>
 
   const mod = canModerate(session.role)
   const editor = canEdit(session.role)
   const section = s.info.find((i) => i.key === tab)
-  const hist = s.historical
-  const histSrc = hist && (hist.url || hist.driveId) ? imageSrc(hist) : null
   const areas = s.areas || []
+
+  // The settlement "map" is its historical aerial photo(s). Prefer imageLayers;
+  // fall back to a legacy single `historical` image so nothing breaks.
+  const layers = (s.imageLayers && s.imageLayers.length)
+    ? s.imageLayers.filter((l) => l.url || l.driveId).map((l) => ({ year: l.year || '', src: imageSrc(l) }))
+    : (s.historical && (s.historical.url || s.historical.driveId))
+      ? [{ year: s.historical.year || '2005', src: imageSrc(s.historical) }]
+      : []
+  const hasPhoto = layers.length > 0
+  const effectiveYear = activeYear || layers[0]?.year || null
 
   function confirmPoi() {
     if (!poiTitle.trim() || !poiDraft) return
-    const poiId = addPoi(s.id, { title: poiTitle.trim(), lat: poiDraft.lat, lng: poiDraft.lng, authorName: session.name })
+    const poiId = addPoi(s.id, { title: poiTitle.trim(), x: poiDraft.x, y: poiDraft.y, authorName: session.name })
     setPoiDraft(null)
     setPoiTitle('')
     setPinMode(false)
@@ -70,7 +78,6 @@ export default function SettlementView() {
     setDrawCat(cat)
     setDraftPoints([])
     setPinMode(false)
-    setMoveMode(false)
   }
   function cancelDraw() {
     setDrawCat(null)
@@ -100,15 +107,6 @@ export default function SettlementView() {
         </div>
       </div>
 
-      {histSrc && (
-        <figure className="hist-photo card">
-          <img src={histSrc} alt={`${s.name} — כך היה`} loading="lazy" />
-          <figcaption className="muted">
-            {hist.caption || `${s.name} — כך נראה היישוב (${hist.year || '2005'})`}
-          </figcaption>
-        </figure>
-      )}
-
       <div className="settlement-grid">
         <div className="info-col card">
           <div className="row wrap gap-6" style={{ padding: '4px 4px 12px' }}>
@@ -126,21 +124,16 @@ export default function SettlementView() {
 
         <div className="closeup-col">
           <div className="closeup-head row wrap gap-6">
-            <h3>נקודות עניין</h3>
+            <h3>{hasPhoto ? 'התצלום ההיסטורי' : 'נקודות עניין'}</h3>
             <span className="grow" />
-            {editor && (
-              <button className={`pill ${pinMode ? 'is-active' : 'ghost'}`} onClick={() => { setPinMode((v) => !v); setMoveMode(false); cancelDraw() }}>
-                <IconPin width={14} height={14} /> {pinMode ? 'בחרו מיקום…' : 'הוספת נקודה'}
-              </button>
-            )}
-            {mod && s.pois.length > 0 && (
-              <button className={`pill ${moveMode ? 'is-active' : 'ghost'}`} onClick={() => { setMoveMode((v) => !v); setPinMode(false); cancelDraw() }}>
-                <IconEdit width={14} height={14} /> {moveMode ? 'גררו נקודה ושחררו' : 'הזזה'}
+            {editor && hasPhoto && (
+              <button className={`pill ${pinMode ? 'is-active' : 'ghost'}`} onClick={() => { setPinMode((v) => !v); cancelDraw() }}>
+                <IconPin width={14} height={14} /> {pinMode ? 'לחצו על התצלום…' : 'הוספת נקודה'}
               </button>
             )}
           </div>
 
-          {editor && (
+          {editor && hasPhoto && (
             <div className="area-tools row wrap gap-6">
               {drawCat ? (
                 <>
@@ -162,25 +155,34 @@ export default function SettlementView() {
             </div>
           )}
           {drawCat && (
-            <p className="muted" style={{ fontSize: '0.8rem', margin: '2px 0 6px' }}>לחצו על המפה כדי להוסיף פינות לאזור (לפחות 3), ואז "סיום ושמירה".</p>
+            <p className="muted" style={{ fontSize: '0.8rem', margin: '2px 0 6px' }}>לחצו על התצלום כדי להוסיף פינות לאזור (לפחות 3), ואז "סיום ושמירה".</p>
           )}
 
-          <LeafletMap
-            className="closeup-map"
-            closeup
-            fitKey={s.id}
-            center={{ lat: s.lat, lng: s.lng, zoom: 16 }}
-            markers={s.pois.map((p) => ({ id: p.id, lat: p.lat, lng: p.lng, label: p.title, kind: 'poi' }))}
-            pinMode={pinMode}
-            draggableMarkers={moveMode}
-            areas={areas}
-            draftArea={drawCat ? { category: drawCat, points: draftPoints } : null}
-            drawMode={!!drawCat}
-            onDrawClick={(latlng) => setDraftPoints((p) => [...p, [latlng.lat, latlng.lng]])}
-            onMarkerClick={(m) => navigate(`/poi/${s.id}/${m.id}`)}
-            onMapClick={(latlng) => setPoiDraft({ lat: latlng.lat, lng: latlng.lng })}
-            onMarkerMove={(m, latlng) => movePoi(s.id, m.id, latlng.lat, latlng.lng)}
-          />
+          {hasPhoto ? (
+            <ImageMap
+              className="closeup-image"
+              layers={layers}
+              activeYear={effectiveYear}
+              onYearChange={setActiveYear}
+              pois={s.pois}
+              areas={areas}
+              draftArea={drawCat ? { category: drawCat, points: draftPoints } : null}
+              pinMode={pinMode}
+              drawMode={!!drawCat}
+              onImageClick={(x, y) => {
+                if (drawCat) setDraftPoints((p) => [...p, [x, y]])
+                else if (pinMode) setPoiDraft({ x, y })
+              }}
+              onPoiClick={(p) => navigate(`/poi/${s.id}/${p.id}`)}
+            />
+          ) : (
+            <div className="no-photo card">
+              <p className="muted">עדיין לא הועלה תצלום ליישוב זה.</p>
+              {mod
+                ? <p className="muted" style={{ fontSize: '0.85rem' }}>לחצו "עריכת פרטים" למעלה כדי להעלות תצלום 2005 ו-2025.</p>
+                : <p className="muted" style={{ fontSize: '0.85rem' }}>הנקודות והסיפורים מופיעים ברשימה למטה.</p>}
+            </div>
+          )}
 
           {areas.length > 0 && (
             <div className="area-legend row wrap gap-8">
@@ -194,8 +196,8 @@ export default function SettlementView() {
             </div>
           )}
 
-          {s.pois.length === 0 && !pinMode && (
-            <p className="closeup-empty-note muted">אין עדיין נקודות עניין. {editor ? 'לחצו "הוספת נקודה" ואז על המפה כדי לסמן בית או אתר.' : 'התחברו כדי להוסיף.'}</p>
+          {s.pois.length === 0 && !pinMode && hasPhoto && (
+            <p className="closeup-empty-note muted">אין עדיין נקודות עניין. {editor ? 'לחצו "הוספת נקודה" ואז על התצלום כדי לסמן בית או אתר.' : 'התחברו כדי להוסיף.'}</p>
           )}
 
           {s.pois.length > 0 && (
@@ -226,7 +228,7 @@ export default function SettlementView() {
           <label className="lbl">כותרת (למשל: הבית שלנו, בית הכנסת, החממות)</label>
           <input className="field" autoFocus value={poiTitle} onChange={(e) => setPoiTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && confirmPoi()} placeholder="כותרת הנקודה" />
           <p className="muted" style={{ fontSize: '0.8rem' }}>
-            מיקום: {poiDraft ? `${poiDraft.lat.toFixed(4)}, ${poiDraft.lng.toFixed(4)}` : ''}
+            מיקום על התצלום: {poiDraft ? `${poiDraft.x.toFixed(1)}%, ${poiDraft.y.toFixed(1)}%` : ''}
           </p>
           <div className="row" style={{ justifyContent: 'flex-end' }}>
             <button className="btn btn-primary" disabled={!poiTitle.trim()} onClick={confirmPoi}>יצירה</button>
@@ -346,63 +348,71 @@ function SectionEditor({ settlementId, sectionKey, initialBody, initialEntries, 
 function EditMetaModal({ open, onClose, settlement }) {
   const navigate = useNavigate()
   const [form, setForm] = useState({})
-  const [imgBusy, setImgBusy] = useState(false)
+  const [busySlot, setBusySlot] = useState(-1)
   const [imgErr, setImgErr] = useState('')
   const s = settlement
   const val = (k) => (form[k] !== undefined ? form[k] : s[k] ?? '')
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
-  // historical image fields (nested under s.historical)
-  const h = s.historical || {}
-  const hInit = { url: h.url ?? '', driveId: h.driveId ?? '', caption: h.caption ?? '', year: h.year ?? '' }
-  const hval = (k) => (form['h_' + k] !== undefined ? form['h_' + k] : hInit[k])
-  const hset = (k) => (e) => setForm((f) => ({ ...f, ['h_' + k]: e.target.value }))
-  const previewSrc = hval('driveId') ? imageSrc({ driveId: hval('driveId') }) : hval('url')
+  // Two aerial-photo slots (2005 / 2025). Prefer imageLayers; migrate a legacy
+  // single `historical` image into the first slot.
+  const initLayers = (s.imageLayers && s.imageLayers.length)
+    ? s.imageLayers
+    : (s.historical && (s.historical.url || s.historical.driveId))
+      ? [{ year: s.historical.year || '2005', url: s.historical.url, driveId: s.historical.driveId }]
+      : []
+  const slotYear = [initLayers[0]?.year || '2005', initLayers[1]?.year || '2025']
+  const lval = (i, k) => {
+    const fk = `L${i}_${k}`
+    if (form[fk] !== undefined) return form[fk]
+    if (k === 'year') return slotYear[i]
+    return initLayers[i]?.[k] ?? ''
+  }
+  const lset = (i, k) => (e) => setForm((f) => ({ ...f, [`L${i}_${k}`]: e.target.value }))
+  const lpreview = (i) => (lval(i, 'driveId') ? imageSrc({ driveId: lval(i, 'driveId') }) : lval(i, 'url'))
 
-  async function onHistFile(e) {
+  async function onSlotFile(i, e) {
     const f = e.target.files?.[0]
     if (!f) return
-    setImgBusy(true)
+    setBusySlot(i)
     setImgErr('')
     try {
       if (isDriveConfigured) {
         const up = await uploadToDrive(f)
-        setForm((fm) => ({ ...fm, h_driveId: up.id, h_url: up.url }))
+        setForm((fm) => ({ ...fm, [`L${i}_driveId`]: up.id, [`L${i}_url`]: up.url }))
       } else {
         const dataUrl = await fileToDataUrl(f)
-        setForm((fm) => ({ ...fm, h_driveId: '', h_url: dataUrl }))
+        setForm((fm) => ({ ...fm, [`L${i}_driveId`]: '', [`L${i}_url`]: dataUrl }))
       }
     } catch {
       setImgErr('ההעלאה נכשלה. נסו קובץ קטן יותר, או הדביקו קישור.')
     } finally {
-      setImgBusy(false)
+      setBusySlot(-1)
     }
   }
 
+  function removeSlot(i) {
+    setForm((f) => ({ ...f, [`L${i}_url`]: '', [`L${i}_driveId`]: '' }))
+  }
+
   function save() {
-    const url = String(hval('url')).trim()
-    const driveId = String(hval('driveId')).trim()
-    const historical = (url || driveId)
-      ? {
-          url: url || undefined,
-          driveId: driveId || undefined,
-          caption: String(hval('caption')).trim() || undefined,
-          year: String(hval('year')).trim() || '2005',
-        }
-      : null
+    const layers = [0, 1]
+      .map((i) => ({
+        year: String(lval(i, 'year')).trim() || (i ? '2025' : '2005'),
+        url: String(lval(i, 'url')).trim() || undefined,
+        driveId: String(lval(i, 'driveId')).trim() || undefined,
+      }))
+      .filter((l) => l.url || l.driveId)
     updateSettlementMeta(s.id, {
       tagline: val('tagline'),
       evacuatedTo: val('evacuatedTo'),
       population: val('population') === '' ? undefined : Number(val('population')),
       founded: val('founded') === '' ? undefined : Number(val('founded')),
-      historical,
+      imageLayers: layers,
+      historical: null,
     })
     setForm({})
     onClose()
-  }
-
-  function removeHist() {
-    setForm((f) => ({ ...f, h_url: '', h_driveId: '' }))
   }
 
   function remove() {
@@ -423,34 +433,34 @@ function EditMetaModal({ open, onClose, settlement }) {
         <div><label className="lbl">לאן פונו</label><input className="field" value={val('evacuatedTo')} onChange={set('evacuatedTo')} /></div>
 
         <details className="hist-fields" open>
-          <summary>תמונת "כך היה היישוב" (לפני / אחרי)</summary>
+          <summary>תצלומי אוויר של היישוב (לפי שנה)</summary>
           <div className="stack gap-10" style={{ marginTop: 10 }}>
             <p className="muted" style={{ fontSize: '0.8rem', margin: 0 }}>
-              העלו תמונה מהמחשב (למשל תצלום השוואה לפני/אחרי), או הדביקו קישור. התמונה תוצג בראש דף היישוב.
+              העלו תצלום לכל שנה — <b>באותו חיתוך בדיוק</b> (אותו שטח וזווית) — כדי שנקודות העניין יישארו במקומן במעבר בין השנים. התצלום הפעיל משמש כ"מפה" של היישוב.
             </p>
-            <div>
-              <label className="lbl">העלאת תמונה</label>
-              <input type="file" accept="image/*" onChange={onHistFile} disabled={imgBusy} />
-              {imgBusy && <p className="muted" style={{ fontSize: '0.8rem', marginTop: 6 }}>מעלה…</p>}
-            </div>
-            <div><label className="lbl">או קישור לתמונה (URL)</label><input className="field" dir="ltr" value={hval('url')} onChange={hset('url')} placeholder="https://…" /></div>
-            {previewSrc && (
-              <div className="stack gap-6">
-                <img src={previewSrc} alt="תצוגה מקדימה" style={{ maxWidth: '100%', borderRadius: 10 }} />
-                <button className="pill ghost sm" onClick={removeHist} type="button" style={{ alignSelf: 'flex-start' }}>הסרת התמונה</button>
+            {[0, 1].map((i) => (
+              <div key={i} className="stack gap-6" style={{ border: '1px dashed rgba(180,130,60,0.3)', borderRadius: 10, padding: 10 }}>
+                <div className="row gap-10 wrap" style={{ alignItems: 'flex-end' }}>
+                  <div style={{ flex: '0 0 90px' }}><label className="lbl">שנה</label><input className="field" dir="ltr" value={lval(i, 'year')} onChange={lset(i, 'year')} placeholder={i ? '2025' : '2005'} /></div>
+                  <div style={{ flex: 1, minWidth: 150 }}><label className="lbl">העלאת תצלום</label><input type="file" accept="image/*" onChange={(e) => onSlotFile(i, e)} disabled={busySlot === i} /></div>
+                </div>
+                {busySlot === i && <p className="muted" style={{ fontSize: '0.8rem', margin: 0 }}>מעלה…</p>}
+                <div><label className="lbl">או קישור (URL)</label><input className="field" dir="ltr" value={lval(i, 'url')} onChange={lset(i, 'url')} placeholder="https://…" /></div>
+                {lpreview(i) && (
+                  <div className="stack gap-6">
+                    <img src={lpreview(i)} alt={`תצוגה מקדימה ${lval(i, 'year')}`} style={{ maxWidth: '100%', borderRadius: 8 }} />
+                    <button className="pill ghost sm" onClick={() => removeSlot(i)} type="button" style={{ alignSelf: 'flex-start' }}>הסרת התצלום</button>
+                  </div>
+                )}
               </div>
-            )}
-            <div className="row gap-10 wrap">
-              <div style={{ flex: 2, minWidth: 160 }}><label className="lbl">כיתוב (רשות)</label><input className="field" value={hval('caption')} onChange={hset('caption')} placeholder="למשל: נצרים, לפני ואחרי" /></div>
-              <div style={{ flex: 1, minWidth: 90 }}><label className="lbl">שנה</label><input className="field" dir="ltr" value={hval('year')} onChange={hset('year')} placeholder="2005" /></div>
-            </div>
+            ))}
             {imgErr && <p style={{ color: '#d9534f', fontSize: '0.85rem', margin: 0 }}>{imgErr}</p>}
           </div>
         </details>
 
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <button className="btn btn-soft danger-btn" onClick={remove}><IconTrash width={15} height={15} /> מחיקת יישוב</button>
-          <button className="btn btn-primary" onClick={save} disabled={imgBusy}>שמירה</button>
+          <button className="btn btn-primary" onClick={save} disabled={busySlot >= 0}>שמירה</button>
         </div>
       </div>
     </Modal>

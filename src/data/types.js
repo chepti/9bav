@@ -45,8 +45,8 @@
  * @property {string} id
  * @property {string} settlementId
  * @property {string} title
- * @property {number} lat         // geographic position of the point of interest
- * @property {number} lng
+ * @property {number} x           // horizontal position as % (0..100) of the photo
+ * @property {number} y           // vertical position as % (0..100) of the photo
  * @property {string} authorName
  * @property {MediaItem[]} before // "before the expulsion"
  * @property {MediaItem[]} during // day of expulsion (each item has timeLabel)
@@ -54,18 +54,18 @@
  */
 
 /**
- * @typedef {Object} HistoricalImage // a "how it looked in 2005" before/after photo
- * @property {string} [url]           // image source (data-URL or https link)
- * @property {string} [driveId]       // Google Drive file id (live mode uploads)
- * @property {string} [caption]       // optional caption
- * @property {string} [year]          // label, default "2005"
+ * @typedef {Object} ImageLayer // a dated aerial photo of the settlement, all
+ *                                sharing the same framing so points line up
+ * @property {string} year       // "2005", "2025", …
+ * @property {string} [url]      // image source (data-URL or https link)
+ * @property {string} [driveId]  // Google Drive file id (live mode uploads)
  */
 
 /**
  * @typedef {Object} Area // a colored polygon marking where a function was located
  * @property {string} id
  * @property {'agriculture'|'education'|'community'|'commerce'|'general'} category
- * @property {[number,number][]} points // [[lat,lng], …] polygon vertices
+ * @property {[number,number][]} points // [[x%,y%], …] polygon vertices on the photo
  * @property {string} [label]           // optional free-text label
  */
 
@@ -80,8 +80,8 @@
  * @property {number} [founded]
  * @property {string} [evacuatedTo]
  * @property {string} [tagline]
- * @property {HistoricalImage} [historical] // optional "how it looked" photo
- * @property {Area[]} [areas]     // optional map-area polygons
+ * @property {ImageLayer[]} [imageLayers] // aerial photos by year (the settlement "map")
+ * @property {Area[]} [areas]     // optional area polygons on the photo
  * @property {InfoSection[]} info
  * @property {string[]} moderators
  * @property {Poi[]} pois
