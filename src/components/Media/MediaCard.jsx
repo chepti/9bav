@@ -29,7 +29,16 @@ export default function MediaCard({ item, canModerate, onApprove, onDelete, inde
       )}
       {item.type === 'video' && (item.url || item.driveId) && (
         videoEmbed(item)
-          ? <iframe className="media-embed" src={videoEmbed(item)} title={item.title || 'video'} allow="autoplay" allowFullScreen />
+          ? (
+            <iframe
+              className="media-embed"
+              src={videoEmbed(item)}
+              title={item.title || 'video'}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              referrerPolicy="strict-origin-when-cross-origin"
+            />
+          )
           : <video className="media-img" src={item.url} controls />
       )}
       {item.type === 'document' && (item.url || item.driveId) && (

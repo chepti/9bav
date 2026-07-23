@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { addMedia } from '../../data/store.js'
 import { useSession } from '../../data/session.js'
 import { uploadToDrive, isDriveConfigured } from '../../data/drive.js'
+import { youtubeIdFromUrl } from '../../data/media.js'
 import { MEDIA_ICONS } from '../ui/Icons.jsx'
 
 const TYPES = [
@@ -26,15 +27,26 @@ export default function MediaUploader({ settlementId, poiId, phase, onDone }) {
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [file, setFile] = useState(null)
+  const [youtubeUrl, setYoutubeUrl] = useState('')
   const [timeLabel, setTimeLabel] = useState('')
   const [approximate, setApproximate] = useState(false)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
+  const ytId = youtubeIdFromUrl(youtubeUrl)
+
+  function selectType(key) {
+    setType(key)
+    setFile(null)
+    setYoutubeUrl('')
+    setErr('')
+  }
+
   function onFile(e) {
     const f = e.target.files?.[0]
     if (!f) return
     setFile(f)
+    setYoutubeUrl('')
     if (!title) setTitle(f.name)
   }
 
@@ -52,7 +64,9 @@ export default function MediaUploader({ settlementId, poiId, phase, onDone }) {
         item.timeLabel = timeLabel.trim() || undefined
         item.approximate = approximate
       }
-      if (type !== 'text' && file) {
+      if (type === 'video' && ytId && !file) {
+        item.url = `https://www.youtube.com/watch?v=${ytId}`
+      } else if (type !== 'text' && file) {
         if (isDriveConfigured) {
           const up = await uploadToDrive(file)
           item.url = up.url
@@ -72,10 +86,15 @@ export default function MediaUploader({ settlementId, poiId, phase, onDone }) {
     }
   }
 
-  const needsFile = type === 'photo' || type === 'video' || type === 'document'
+  const needsFile = type === 'photo' || type === 'document'
   const accept = type === 'photo' ? 'image/*' : type === 'video' ? 'video/*' : undefined
+  const hasVideoSource = type === 'video' && (!!file || !!ytId)
   const valid =
-    (type === 'text' ? body.trim().length > 0 : !!file) &&
+    (type === 'text'
+      ? body.trim().length > 0
+      : type === 'video'
+        ? hasVideoSource
+        : !!file) &&
     (phase !== 'during' || timeLabel.trim().length > 0)
 
   return (
@@ -84,7 +103,7 @@ export default function MediaUploader({ settlementId, poiId, phase, onDone }) {
         {TYPES.map((t) => {
           const Icon = MEDIA_ICONS[t.key]
           return (
-            <button key={t.key} className={`pill ${type === t.key ? 'is-active' : 'ghost'}`} onClick={() => setType(t.key)}>
+            <button key={t.key} className={`pill ${type === t.key ? 'is-active' : 'ghost'}`} onClick={() => selectType(t.key)}>
               <Icon width={14} height={14} /> {t.label}
             </button>
           )
@@ -113,6 +132,36 @@ export default function MediaUploader({ settlementId, poiId, phase, onDone }) {
         <div>
           <label className="lbl">הטקסט</label>
           <textarea className="field" rows={5} value={body} onChange={(e) => setBody(e.target.value)} placeholder="ספרו את הסיפור..." />
+        </div>
+      ) : type === 'video' ? (
+        <div className="stack gap-12">
+          <div>
+            <label className="lbl">קישור ליוטיוב</label>
+            <input
+              className="field"
+              value={youtubeUrl}
+              onChange={(e) => { setYoutubeUrl(e.target.value); setFile(null) }}
+              placeholder="https://www.youtube.com/watch?v=… או https://youtu.be/…"
+              dir="ltr"
+              inputMode="url"
+              autoComplete="off"
+            />
+            {youtubeUrl.trim() && !ytId && (
+              <p style={{ color: '#d9534f', fontSize: '0.8rem', marginTop: 6 }}>לא זוהה קישור יוטיוב תקין</p>
+            )}
+            {ytId && (
+              <p className="muted" style={{ fontSize: '0.8rem', marginTop: 6 }}>הקישור תקין — יוצג כהטמעה בדף</p>
+            )}
+          </div>
+          <div>
+            <label className="lbl">או העלאת קובץ וידאו</label>
+            <input type="file" accept={accept} onChange={onFile} />
+            {file && <p className="muted" style={{ fontSize: '0.8rem', marginTop: 6 }}>נבחר: {file.name} ({Math.round(file.size / 1024)} KB)</p>}
+          </div>
+          <div>
+            <label className="lbl">תיאור / כיתוב (רשות)</label>
+            <textarea className="field" rows={2} value={body} onChange={(e) => setBody(e.target.value)} placeholder="כיתוב לסרטון / תיאור" />
+          </div>
         </div>
       ) : (
         <div>
