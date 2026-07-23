@@ -8,6 +8,7 @@
 
 import { useSyncExternalStore } from 'react'
 import { isFirebaseConfigured, auth, db, OWNER_EMAIL } from './firebase.js'
+import { fetchAssignedRole } from './roles.js'
 
 const FB = isFirebaseConfigured
 const KEY = 'gk_session_v1'
@@ -56,30 +57,44 @@ if (FB) {
       const email = (user.email || '').toLowerCase()
       const isOwner = email === OWNER_EMAIL
       let role = 'resident'
+      let assignedSettlement = null
       try {
         const { doc, getDoc, setDoc } = await import('firebase/firestore')
         const ref = doc(db, 'users', user.uid)
         const snap = await getDoc(ref)
-        if (snap.exists()) {
-          role = snap.data().role || 'resident'
-        } else {
-          role = isOwner ? 'moderator' : 'resident'
-          await setDoc(ref, {
-            name: user.displayName || user.email,
-            email: user.email,
-            role,
-            createdAt: Date.now(),
-          })
+        const current = snap.exists() ? snap.data().role || 'resident' : 'resident'
+
+        // A pre-authorization by email (added by the owner) takes precedence.
+        const assigned = await fetchAssignedRole(email)
+        if (assigned) assignedSettlement = assigned.settlementId || null
+
+        role = isOwner ? 'moderator' : assigned?.role || current
+        if (isOwner) role = 'moderator'
+
+        // Keep the user's own profile in sync so security rules (which read
+        // users/{uid}.role) recognize moderators.
+        if (!snap.exists() || current !== role) {
+          await setDoc(
+            ref,
+            {
+              name: user.displayName || user.email,
+              email: user.email,
+              role,
+              settlementId: assignedSettlement,
+              updatedAt: Date.now(),
+            },
+            { merge: true },
+          )
         }
       } catch (e) {
         console.error('[gk] user role load failed', e)
       }
-      if (isOwner && role !== 'moderator') role = 'moderator'
       session = {
         name: user.displayName || user.email,
         role,
         email: user.email,
         uid: user.uid,
+        settlementId: assignedSettlement,
         loading: false,
       }
       emit()

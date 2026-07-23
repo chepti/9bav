@@ -27,6 +27,15 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'moderator';
     }
+    // The role a signed-in user is entitled to: owner => moderator; otherwise
+    // whatever the owner assigned to their email in `roles/{email}`, else resident.
+    function assignedRole() {
+      return isOwner()
+        ? 'moderator'
+        : (exists(/databases/$(database)/documents/roles/$(request.auth.token.email))
+            ? get(/databases/$(database)/documents/roles/$(request.auth.token.email)).data.role
+            : 'resident');
+    }
 
     // Settlement documents (with embedded POIs + media)
     match /settlements/{settlementId} {
@@ -35,18 +44,23 @@ service cloud.firestore {
       allow delete: if isModerator();
     }
 
-    // User profiles / roles
+    // User profiles. A user's role must equal what they're entitled to
+    // (assignedRole()), so nobody can self-promote; the owner grants moderator
+    // rights by adding the person's email to /roles (see below).
     match /users/{uid} {
       allow read: if signedIn();
-      // Self-create as 'resident'; only the owner may bootstrap as 'moderator'.
       allow create: if signedIn() && request.auth.uid == uid
-        && (request.resource.data.role == 'resident'
-            || (request.resource.data.role == 'moderator' && isOwner()));
-      // Users may edit their own profile without changing their role; moderators
-      // (and the owner) may change anyone's role — this is how promotions happen.
+        && request.resource.data.role == assignedRole();
       allow update: if (signedIn() && request.auth.uid == uid
-                        && request.resource.data.role == resource.data.role)
-                    || isModerator() || isOwner();
+                        && request.resource.data.role == assignedRole())
+                    || isOwner() || isModerator();
+    }
+
+    // Role assignments by email. Public site users never touch this; only the
+    // owner and moderators manage it (this is the front-end "add moderator" UI).
+    match /roles/{email} {
+      allow read: if signedIn();
+      allow write: if isOwner() || isModerator();
     }
   }
 }

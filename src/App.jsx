@@ -2,15 +2,16 @@ import { useState } from 'react'
 import { HashRouter, Routes, Route, Link } from 'react-router-dom'
 import { useSession, signOut } from './data/session.js'
 import { resetToSeed, isLive } from './data/store.js'
-import { IconUser, IconSeed } from './components/ui/Icons.jsx'
+import { IconUser, IconSeed, IconCheck } from './components/ui/Icons.jsx'
 import SignInModal from './components/Auth/SignInModal.jsx'
+import AdminPanel from './components/Admin/AdminPanel.jsx'
 import Home from './components/Home.jsx'
 import SettlementView from './components/Settlement/SettlementView.jsx'
 import PoiView from './components/Poi/PoiView.jsx'
 
 const ROLE_LABEL = { moderator: 'מודרטור', resident: 'תושב/ת', guest: 'אורח/ת' }
 
-function Header({ onSignIn }) {
+function Header({ onSignIn, onAdmin }) {
   const session = useSession()
   return (
     <header className="app-header">
@@ -26,6 +27,9 @@ function Header({ onSignIn }) {
         <button className="pill" onClick={onSignIn}><IconUser width={15} height={15} /> כניסה לעריכה</button>
       ) : (
         <div className="row gap-8">
+          {session.role === 'moderator' && (
+            <button className="pill" onClick={onAdmin}><IconCheck width={14} height={14} /> ניהול</button>
+          )}
           <span className="pill ghost sm">{ROLE_LABEL[session.role]} · {session.name}</span>
           <button className="pill ghost sm" onClick={signOut}>יציאה</button>
         </div>
@@ -59,9 +63,10 @@ function Footer() {
 
 export default function App() {
   const [signInOpen, setSignInOpen] = useState(false)
+  const [adminOpen, setAdminOpen] = useState(false)
   return (
     <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <Header onSignIn={() => setSignInOpen(true)} />
+      <Header onSignIn={() => setSignInOpen(true)} onAdmin={() => setAdminOpen(true)} />
       <main className="app-main">
         <Routes>
           <Route path="/" element={<Home />} />
@@ -71,6 +76,7 @@ export default function App() {
       </main>
       <Footer />
       <SignInModal open={signInOpen} onClose={() => setSignInOpen(false)} />
+      <AdminPanel open={adminOpen} onClose={() => setAdminOpen(false)} />
     </HashRouter>
   )
 }
