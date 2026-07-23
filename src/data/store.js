@@ -244,9 +244,11 @@ export function addMedia(settlementId, poiId, phase, item) {
     id: mediaId,
     createdAt: Date.now(),
     status: 'approved', // published immediately; moderators may delete
+    likedBy: [],
     authorName: item.authorName || 'אנונימי',
     ...item,
   }
+  if (!Array.isArray(media.likedBy)) media.likedBy = []
   mutateSettlement(settlementId, (s) => {
     const p = s.pois.find((p) => p.id === poiId)
     if (!p) return s
@@ -296,6 +298,29 @@ export function deleteMedia(settlementId, poiId, mediaId) {
     p.before = p.before.filter((m) => m.id !== mediaId)
     p.during = p.during.filter((m) => m.id !== mediaId)
     p.after.forEach((d) => (d.media = d.media.filter((m) => m.id !== mediaId)))
+    return s
+  })
+}
+
+// Toggle a nostalgic "heart" on a media item. userKey is uid (live) or display name (local).
+export function toggleMediaHeart(settlementId, poiId, mediaId, userKey) {
+  if (!userKey) return
+  mutateSettlement(settlementId, (s) => {
+    const p = s.pois.find((x) => x.id === poiId)
+    if (!p) return s
+    const apply = (arr) => {
+      const m = (arr || []).find((x) => x.id === mediaId)
+      if (!m) return false
+      if (!Array.isArray(m.likedBy)) m.likedBy = []
+      const i = m.likedBy.indexOf(userKey)
+      if (i >= 0) m.likedBy.splice(i, 1)
+      else m.likedBy.push(userKey)
+      return true
+    }
+    if (apply(p.before) || apply(p.during)) return s
+    for (const d of p.after || []) {
+      if (apply(d.media)) return s
+    }
     return s
   })
 }

@@ -21,6 +21,7 @@
  * @property {boolean} [approximate]// true => shown as ~09:15
  * @property {string} authorName
  * @property {number} createdAt
+ * @property {string[]} [likedBy]   // user keys (uid / email / local name) who hearted this item
  * @property {'pending'|'approved'} [status] // legacy; new items are published as approved
  */
 

@@ -20,6 +20,15 @@ export const IconBook = (p) => (<svg {...base} {...p}><path d="M4 5a2 2 0 0 1 2-
 export const IconHome = (p) => (<svg {...base} {...p}><path d="M3 11l9-8 9 8" /><path d="M5 10v10h14V10" /></svg>)
 export const IconStore = (p) => (<svg {...base} {...p}><path d="M4 4h16l-1 5H5zM5 9v11h14V9M9 20v-6h6v6" /></svg>)
 export const IconMail = (p) => (<svg {...base} {...p}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" /></svg>)
+export const IconHeart = (p) => (<svg {...base} {...p}><path d="M12 21s-7-4.8-7-10a4.5 4.5 0 0 1 8-2.7A4.5 4.5 0 0 1 19 11c0 5.2-7 10-7 10z" /></svg>)
+export const IconHeartFilled = (p) => (
+  <svg {...base} {...p} fill="currentColor" stroke="currentColor">
+    <path d="M12 21s-7-4.8-7-10a4.5 4.5 0 0 1 8-2.7A4.5 4.5 0 0 1 19 11c0 5.2-7 10-7 10z" />
+  </svg>
+)
+export const IconExpand = (p) => (<svg {...base} {...p}><path d="M9 3H3v6M15 3h6v6M9 21H3v-6M21 15v6h-6" /></svg>)
+export const IconChevron = (p) => (<svg {...base} {...p}><path d="M15 18l-6-6 6-6" /></svg>)
+export const IconChevronLeft = (p) => (<svg {...base} {...p}><path d="M9 18l6-6-6-6" /></svg>)
 
 export const SECTION_ICONS = {
   general: IconHome,

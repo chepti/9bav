@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { HashRouter, Routes, Route, Link } from 'react-router-dom'
 import { useSession, signOut } from './data/session.js'
 import { resetToSeed, isLive } from './data/store.js'
@@ -77,6 +77,13 @@ function Footer() {
 export default function App() {
   const [signInOpen, setSignInOpen] = useState(false)
   const [adminOpen, setAdminOpen] = useState(false)
+
+  useEffect(() => {
+    const open = () => setSignInOpen(true)
+    window.addEventListener('gk:need-signin', open)
+    return () => window.removeEventListener('gk:need-signin', open)
+  }, [])
+
   return (
     <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Header onSignIn={() => setSignInOpen(true)} onAdmin={() => setAdminOpen(true)} />

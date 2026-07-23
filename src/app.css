@@ -628,8 +628,161 @@
 .media-img { width: 100%; border-radius: 10px; margin: 6px 0; display: block; }
 .media-embed { width: 100%; aspect-ratio: 16 / 9; border: none; border-radius: 10px; margin: 6px 0; display: block; }
 .media-body { margin: 6px 0 0; line-height: 1.65; color: var(--ink-700); white-space: pre-wrap; }
+.media-thumb {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: zoom-in;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.media-thumb .media-img,
+.media-thumb .media-embed { margin: 0; }
+.media-text-preview {
+  display: block;
+  width: 100%;
+  text-align: start;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: zoom-in;
+  font: inherit;
+  color: inherit;
+}
+.media-card-actions { margin-top: 10px; align-items: center; }
+.heart-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(180, 130, 60, 0.2);
+  background: var(--sand-100);
+  color: var(--clay-700);
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: background 0.16s var(--ease), color 0.16s var(--ease), transform 0.16s var(--ease), border-color 0.16s var(--ease);
+}
+.heart-btn:hover {
+  border-color: #e07a8a;
+  color: #c44d63;
+  transform: translateY(-1px);
+}
+.heart-btn.is-on {
+  background: #fde8ec;
+  border-color: #e07a8a;
+  color: #c44d63;
+}
 .pending-pill { background: var(--amber-400); color: #fff; }
 .pill.danger:hover { border-color: #d9534f; color: #d9534f; }
+
+/* ============ Lightbox ============ */
+.lightbox-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  background: rgba(28, 18, 10, 0.88);
+  backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  padding: 56px 20px 28px;
+}
+.lightbox-close {
+  position: absolute;
+  top: 14px;
+  inset-inline-end: 14px;
+  z-index: 2;
+  width: 42px;
+  height: 42px;
+  border: none;
+  border-radius: 12px;
+  background: rgba(255, 253, 247, 0.12);
+  color: #fff;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.lightbox-close:hover { background: rgba(255, 253, 247, 0.22); }
+.lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 12px;
+  background: rgba(255, 253, 247, 0.12);
+  color: #fff;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.lightbox-nav:hover { background: rgba(255, 253, 247, 0.22); }
+.lightbox-nav-prev { inset-inline-start: 12px; }
+.lightbox-nav-next { inset-inline-end: 12px; }
+.lightbox-stage {
+  width: min(960px, 100%);
+  max-height: calc(100vh - 90px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+.lightbox-media {
+  max-width: 100%;
+  max-height: calc(100vh - 180px);
+  object-fit: contain;
+  border-radius: 14px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+  background: #1a120c;
+}
+.lightbox-embed {
+  width: min(900px, 100%);
+  aspect-ratio: 16 / 9;
+  border: none;
+  border-radius: 14px;
+  background: #000;
+}
+.lightbox-text {
+  width: min(640px, 100%);
+  background: var(--sand-50);
+  color: var(--ink-700);
+  border-radius: 16px;
+  padding: 22px 24px;
+  box-shadow: var(--shadow-lg);
+}
+.lightbox-text h3 { margin: 0 0 10px; color: var(--clay-800); font-family: var(--font-display); }
+.lightbox-text p { margin: 0; line-height: 1.7; white-space: pre-wrap; }
+.lightbox-caption {
+  width: 100%;
+  color: #fff;
+  padding: 4px 2px;
+  align-items: flex-start;
+}
+.lightbox-caption strong { display: block; font-family: var(--font-display); }
+.lightbox-caption .muted { color: rgba(255, 253, 247, 0.7); }
+.lightbox-body {
+  margin: 6px 0 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: rgba(255, 253, 247, 0.88);
+  white-space: pre-wrap;
+}
+.lightbox-caption .heart-btn {
+  background: rgba(255, 253, 247, 0.12);
+  border-color: rgba(255, 253, 247, 0.22);
+  color: #fff;
+}
+.lightbox-caption .heart-btn.is-on,
+.lightbox-caption .heart-btn:hover {
+  background: #fde8ec;
+  border-color: #e07a8a;
+  color: #c44d63;
+}
 
 /* ============ Day clock ============ */
 .dayclock { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 10px 0; }
