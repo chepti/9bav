@@ -54,6 +54,14 @@
  */
 
 /**
+ * @typedef {Object} HistoricalOverlay // a georeferenced 2005-era aerial photo
+ * @property {string} url               // image source (data-URL, Drive/https link)
+ * @property {[[number,number],[number,number]]} bounds // [[southLat,westLng],[northLat,eastLng]]
+ * @property {number} [opacity]         // 0..1, default 1
+ * @property {string} [year]            // label, default "2005"
+ */
+
+/**
  * @typedef {Object} Settlement
  * @property {string} id
  * @property {string} name
@@ -64,6 +72,7 @@
  * @property {number} [founded]
  * @property {string} [evacuatedTo]
  * @property {string} [tagline]
+ * @property {HistoricalOverlay} [historical] // optional 2005 aerial overlay
  * @property {InfoSection[]} info
  * @property {string[]} moderators
  * @property {Poi[]} pois

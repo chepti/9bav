@@ -293,6 +293,20 @@
 .closeup-head h3 { margin: 0; }
 .closeup-empty-note { text-align: center; margin-top: 10px; font-size: 0.86rem; }
 
+/* historical-overlay editor block inside the edit-meta modal */
+.hist-fields {
+  border: 1px solid rgba(180, 130, 60, 0.2);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--sand-200);
+}
+.hist-fields > summary {
+  cursor: pointer;
+  font-family: var(--font-display);
+  color: var(--clay-800);
+  font-size: 0.92rem;
+}
+
 /* ============ Breadcrumbs ============ */
 .breadcrumbs {
   display: flex;

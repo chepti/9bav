@@ -32,12 +32,18 @@ export default function SettlementView() {
   const [moveMode, setMoveMode] = useState(false)
   const [poiDraft, setPoiDraft] = useState(null)
   const [poiTitle, setPoiTitle] = useState('')
+  // when a 2005 aerial exists, show it by default (the site's whole purpose)
+  const [showHistorical, setShowHistorical] = useState(true)
 
   if (!s) return <div className="page-pad">היישוב לא נמצא. <button className="pill ghost" onClick={() => navigate('/')}>חזרה למפה</button></div>
 
   const mod = canModerate(session.role)
   const editor = canEdit(session.role)
   const section = s.info.find((i) => i.key === tab)
+  const overlay = s.historical?.url && s.historical?.bounds
+    ? { url: s.historical.url, bounds: s.historical.bounds, opacity: s.historical.opacity ?? 1 }
+    : null
+  const histYear = s.historical?.year || '2005'
 
   function confirmPoi() {
     if (!poiTitle.trim() || !poiDraft) return
@@ -86,6 +92,11 @@ export default function SettlementView() {
           <div className="closeup-head row wrap gap-6">
             <h3>נקודות עניין</h3>
             <span className="grow" />
+            {overlay && (
+              <button className={`pill ${showHistorical ? 'is-active' : 'ghost'}`} onClick={() => setShowHistorical((v) => !v)} title="מעבר בין תצלום הגירוש למפה של היום">
+                {showHistorical ? `תצלום ${histYear}` : 'מפה עכשווית'}
+              </button>
+            )}
             {editor && (
               <button className={`pill ${pinMode ? 'is-active' : 'ghost'}`} onClick={() => { setPinMode((v) => !v); setMoveMode(false) }}>
                 <IconPin width={14} height={14} /> {pinMode ? 'בחרו מיקום…' : 'הוספת נקודה'}
@@ -100,14 +111,20 @@ export default function SettlementView() {
           <LeafletMap
             className="closeup-map"
             closeup
+            fitKey={s.id}
             center={{ lat: s.lat, lng: s.lng, zoom: 16 }}
             markers={s.pois.map((p) => ({ id: p.id, lat: p.lat, lng: p.lng, label: p.title, kind: 'poi' }))}
             pinMode={pinMode}
             draggableMarkers={moveMode}
+            overlay={overlay}
+            showOverlay={!!overlay && showHistorical}
             onMarkerClick={(m) => navigate(`/poi/${s.id}/${m.id}`)}
             onMapClick={(latlng) => setPoiDraft({ lat: latlng.lat, lng: latlng.lng })}
             onMarkerMove={(m, latlng) => movePoi(s.id, m.id, latlng.lat, latlng.lng)}
           />
+          {overlay && showHistorical && (
+            <p className="muted" style={{ fontSize: '0.8rem', margin: '6px 0 0' }}>מוצג תצלום אוויר מ־{histYear}. לחצו "מפה עכשווית" למעבר למפה של היום.</p>
+          )}
           {s.pois.length === 0 && !pinMode && (
             <p className="closeup-empty-note muted">אין עדיין נקודות עניין. {editor ? 'לחצו "הוספת נקודה" ואז על המפה כדי לסמן בית או אתר.' : 'התחברו כדי להוסיף.'}</p>
           )}
@@ -189,12 +206,38 @@ function EditMetaModal({ open, onClose, settlement }) {
   const val = (k) => (form[k] !== undefined ? form[k] : s[k] ?? '')
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
+  // historical-overlay fields (nested under s.historical)
+  const h = s.historical || {}
+  const hInit = {
+    url: h.url ?? '',
+    south: h.bounds?.[0]?.[0] ?? '',
+    west: h.bounds?.[0]?.[1] ?? '',
+    north: h.bounds?.[1]?.[0] ?? '',
+    east: h.bounds?.[1]?.[1] ?? '',
+    opacity: h.opacity ?? '',
+    year: h.year ?? '',
+  }
+  const hval = (k) => (form['h_' + k] !== undefined ? form['h_' + k] : hInit[k])
+  const hset = (k) => (e) => setForm((f) => ({ ...f, ['h_' + k]: e.target.value }))
+
   function save() {
+    const hUrl = String(hval('url')).trim()
+    const nums = ['south', 'west', 'north', 'east'].map((k) => Number(hval(k)))
+    const boundsOk = nums.every((n) => Number.isFinite(n))
+    const historical = hUrl && boundsOk
+      ? {
+          url: hUrl,
+          bounds: [[nums[0], nums[1]], [nums[2], nums[3]]],
+          opacity: hval('opacity') === '' ? 0.9 : Number(hval('opacity')),
+          year: String(hval('year')).trim() || '2005',
+        }
+      : null
     updateSettlementMeta(s.id, {
       tagline: val('tagline'),
       evacuatedTo: val('evacuatedTo'),
       population: val('population') === '' ? undefined : Number(val('population')),
       founded: val('founded') === '' ? undefined : Number(val('founded')),
+      historical,
     })
     setForm({})
     onClose()
@@ -216,6 +259,28 @@ function EditMetaModal({ open, onClose, settlement }) {
           <div style={{ flex: 1 }}><label className="lbl">שנת הקמה</label><input className="field" type="number" value={val('founded')} onChange={set('founded')} /></div>
         </div>
         <div><label className="lbl">לאן פונו</label><input className="field" value={val('evacuatedTo')} onChange={set('evacuatedTo')} /></div>
+
+        <details className="hist-fields">
+          <summary>תצלום אוויר היסטורי (2005) על המפה</summary>
+          <div className="stack gap-10" style={{ marginTop: 10 }}>
+            <div><label className="lbl">כתובת התמונה (URL)</label><input className="field" dir="ltr" value={hval('url')} onChange={hset('url')} placeholder="https://… או קישור ל-Drive" /></div>
+            <p className="muted" style={{ fontSize: '0.78rem', margin: 0 }}>גבולות גאוגרפיים של התמונה (קווי אורך/רוחב של הפינות):</p>
+            <div className="row gap-10 wrap">
+              <div style={{ flex: 1, minWidth: 120 }}><label className="lbl">רוחב צפוני (north)</label><input className="field" dir="ltr" type="number" step="any" value={hval('north')} onChange={hset('north')} placeholder="31.42" /></div>
+              <div style={{ flex: 1, minWidth: 120 }}><label className="lbl">רוחב דרומי (south)</label><input className="field" dir="ltr" type="number" step="any" value={hval('south')} onChange={hset('south')} placeholder="31.40" /></div>
+            </div>
+            <div className="row gap-10 wrap">
+              <div style={{ flex: 1, minWidth: 120 }}><label className="lbl">אורך מזרחי (east)</label><input className="field" dir="ltr" type="number" step="any" value={hval('east')} onChange={hset('east')} placeholder="34.30" /></div>
+              <div style={{ flex: 1, minWidth: 120 }}><label className="lbl">אורך מערבי (west)</label><input className="field" dir="ltr" type="number" step="any" value={hval('west')} onChange={hset('west')} placeholder="34.27" /></div>
+            </div>
+            <div className="row gap-10 wrap">
+              <div style={{ flex: 1, minWidth: 120 }}><label className="lbl">שקיפות (0–1)</label><input className="field" dir="ltr" type="number" step="0.05" min="0" max="1" value={hval('opacity')} onChange={hset('opacity')} placeholder="0.9" /></div>
+              <div style={{ flex: 1, minWidth: 120 }}><label className="lbl">שנת התצלום</label><input className="field" dir="ltr" value={hval('year')} onChange={hset('year')} placeholder="2005" /></div>
+            </div>
+            <p className="muted" style={{ fontSize: '0.76rem', margin: 0 }}>להסרת התצלום — נקו את שדה הכתובת ושמרו.</p>
+          </div>
+        </details>
+
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <button className="btn btn-soft danger-btn" onClick={remove}><IconTrash width={15} height={15} /> מחיקת יישוב</button>
           <button className="btn btn-primary" onClick={save}>שמירה</button>

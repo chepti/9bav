@@ -52,6 +52,7 @@ export default function RegionMap({ region, settlements }) {
       <LeafletMap
         className="region-map"
         markers={markers}
+        fitKey={region}
         pinMode={pinMode}
         draggableMarkers={moveMode}
         onMarkerClick={(m) => navigate(`/settlement/${m.id}`)}
