@@ -112,7 +112,7 @@
 
 /* ============ Region map ============ */
 .region-wrap { position: relative; }
-.map-toolbar { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+.map-toolbar { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-bottom: 10px; }
 
 .leaflet-host {
   position: relative;
@@ -464,6 +464,20 @@
 .role-option.is-active { border-color: var(--orange-500); background: #fff6e9; box-shadow: 0 0 0 3px rgba(245,166,35,0.15); }
 .role-option strong { font-family: var(--font-display); color: var(--clay-800); }
 .role-option .muted { font-size: 0.82rem; }
+
+/* ============ Admin panel ============ */
+.queue-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--sand-50);
+  border: 1px solid rgba(180, 130, 60, 0.14);
+}
+.queue-item strong { font-family: var(--font-display); font-size: 0.92rem; }
+.admin-add { background: var(--sand-100); }
+select.field { cursor: pointer; }
 
 input[type='file'] { font-size: 0.85rem; }
 input[type='checkbox'] { accent-color: var(--orange-500); width: 16px; height: 16px; }

@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="10" fill="#fdfaf3"/>
+  <g fill="none" stroke="#6b4a33" stroke-width="4" stroke-linecap="round">
+    <!-- center stem -->
+    <path d="M32 12 V50"/>
+    <!-- base -->
+    <path d="M32 50 L24 58 H40 Z" fill="#6b4a33" stroke="none"/>
+    <path d="M20 58 H44" stroke-width="3"/>
+    <!-- branch pairs, arching outward like the photo -->
+    <path d="M32 18 C 24 18, 20 22, 20 30 V50"/>
+    <path d="M32 18 C 40 18, 44 22, 44 30 V50"/>
+    <path d="M32 22 C 17 22, 11 27, 11 36 V50"/>
+    <path d="M32 22 C 47 22, 53 27, 53 36 V50"/>
+    <path d="M32 26 C 10 26, 3 32, 3 42 V50"/>
+    <path d="M32 26 C 54 26, 61 32, 61 42 V50"/>
+  </g>
+  <!-- flame cups -->
+  <g fill="#6b4a33">
+    <circle cx="32" cy="12" r="3.4"/>
+    <circle cx="20" cy="18" r="3"/>
+    <circle cx="44" cy="18" r="3"/>
+    <circle cx="11" cy="22" r="2.7"/>
+    <circle cx="53" cy="22" r="2.7"/>
+    <circle cx="3" cy="26" r="2.4"/>
+    <circle cx="61" cy="26" r="2.4"/>
+  </g>
+</svg>

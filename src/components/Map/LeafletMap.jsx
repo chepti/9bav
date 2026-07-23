@@ -29,12 +29,12 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 }
 
-export default function LeafletMap({ markers = [], onMarkerClick, onMapClick, pinMode = false, closeup = false, center = null, className = '' }) {
+export default function LeafletMap({ markers = [], onMarkerClick, onMapClick, onMarkerMove, draggableMarkers = false, pinMode = false, closeup = false, center = null, className = '' }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const groupRef = useRef(null)
   const cbRef = useRef({})
-  cbRef.current = { onMarkerClick, onMapClick, pinMode }
+  cbRef.current = { onMarkerClick, onMapClick, onMarkerMove, draggableMarkers, pinMode }
 
   // init map once
   useEffect(() => {
@@ -88,10 +88,14 @@ export default function LeafletMap({ markers = [], onMarkerClick, onMapClick, pi
         iconSize: [140, 54],
         iconAnchor: [70, 34], // geo point at the dot's tip (center-ish)
       })
-      const marker = L.marker([m.lat, m.lng], { icon, riseOnHover: true }).addTo(group)
+      const marker = L.marker([m.lat, m.lng], { icon, riseOnHover: true, draggable: cbRef.current.draggableMarkers }).addTo(group)
       marker.on('click', (e) => {
         L.DomEvent.stopPropagation(e)
         if (!cbRef.current.pinMode) cbRef.current.onMarkerClick?.(m)
+      })
+      marker.on('dragend', () => {
+        const ll = marker.getLatLng()
+        cbRef.current.onMarkerMove?.(m, { lat: ll.lat, lng: ll.lng })
       })
       latlngs.push([m.lat, m.lng])
     })

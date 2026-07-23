@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { getSettlement, setInfoSection, updateSettlementMeta, addPoi } from '../../data/store.js'
+import { getSettlement, setInfoSection, updateSettlementMeta, addPoi, movePoi } from '../../data/store.js'
 import { useStore } from '../../data/store.js'
 import { useSession, canEdit, canModerate } from '../../data/session.js'
 import { SECTION_ICONS, IconPin, IconEdit } from '../ui/Icons.jsx'
@@ -91,14 +91,19 @@ export default function SettlementView() {
               </button>
             )}
           </div>
+          {editor && s.pois.length > 0 && (
+            <p className="muted" style={{ fontSize: '0.8rem', margin: '0 0 8px' }}>ניתן לגרור נקודה קיימת כדי להזיז אותה</p>
+          )}
           <LeafletMap
             className="closeup-map"
             closeup
             center={{ lat: s.lat, lng: s.lng, zoom: 16 }}
             markers={s.pois.map((p) => ({ id: p.id, lat: p.lat, lng: p.lng, label: p.title, kind: 'poi' }))}
             pinMode={pinMode}
+            draggableMarkers={editor}
             onMarkerClick={(m) => navigate(`/poi/${s.id}/${m.id}`)}
             onMapClick={(latlng) => setPoiDraft({ lat: latlng.lat, lng: latlng.lng })}
+            onMarkerMove={(m, latlng) => movePoi(s.id, m.id, latlng.lat, latlng.lng)}
           />
           {s.pois.length === 0 && !pinMode && (
             <p className="closeup-empty-note muted">אין עדיין נקודות עניין. {editor ? 'לחצו "הוספת נקודה" ואז על המפה כדי לסמן בית או אתר.' : 'התחברו כדי להוסיף.'}</p>

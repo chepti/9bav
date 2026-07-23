@@ -18,7 +18,7 @@ export const REGIONS = {
     name: 'צפון השומרון',
     subtitle: 'ארבעה יישובים',
     blurb:
-      'ארבעה יישובים בצפון השומרון — חומש, שא־נור, גנים וקדים — שפונו אף הם במסגרת תוכנית ההתנתקות באוגוסט 2005.',
+      'ארבעה יישובים בצפון השומרון — חומש, שא־נור, גנים וכדים — שפונו אף הם במסגרת תוכנית ההתנתקות באוגוסט 2005.',
   },
 }
 
@@ -143,5 +143,5 @@ export const SETTLEMENTS = [
   { id: 'homesh', name: 'חומש', region: 'northern_samaria', lat: 32.303, lng: 35.187, population: 200, founded: 1980, moderators: [], info: [], pois: [] },
   { id: 'sa-nur', name: 'שא־נור', region: 'northern_samaria', lat: 32.36, lng: 35.24, population: 100, founded: 1982, moderators: [], info: [], pois: [] },
   { id: 'ganim', name: 'גנים', region: 'northern_samaria', lat: 32.435, lng: 35.275, population: 150, founded: 1983, moderators: [], info: [], pois: [] },
-  { id: 'kadim', name: 'קדים', region: 'northern_samaria', lat: 32.445, lng: 35.29, population: 160, founded: 1983, moderators: [], info: [], pois: [] },
+  { id: 'kadim', name: 'כדים', region: 'northern_samaria', lat: 32.445, lng: 35.29, population: 160, founded: 1983, moderators: [], info: [], pois: [] },
 ]

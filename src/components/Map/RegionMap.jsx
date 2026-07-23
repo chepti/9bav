@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { IconPin } from '../ui/Icons.jsx'
-import { addSettlement } from '../../data/store.js'
+import { addSettlement, moveSettlement } from '../../data/store.js'
 import { useSession, canModerate } from '../../data/session.js'
 import Modal from '../ui/Modal.jsx'
 import LeafletMap from './LeafletMap.jsx'
@@ -41,6 +41,7 @@ export default function RegionMap({ region, settlements }) {
           <button className={`pill ${pinMode ? 'is-active' : 'ghost'}`} onClick={() => setPinMode((v) => !v)}>
             <IconPin width={14} height={14} /> {pinMode ? 'לחצו על המפה למיקום…' : 'נעיצת יישוב'}
           </button>
+          <span className="muted" style={{ fontSize: '0.8rem' }}>ניתן לגרור נעיצה קיימת כדי להזיז אותה</span>
         </div>
       )}
 
@@ -48,8 +49,10 @@ export default function RegionMap({ region, settlements }) {
         className="region-map"
         markers={markers}
         pinMode={pinMode}
+        draggableMarkers={mod}
         onMarkerClick={(m) => navigate(`/settlement/${m.id}`)}
         onMapClick={(latlng) => setDraft({ lat: latlng.lat, lng: latlng.lng })}
+        onMarkerMove={(m, latlng) => moveSettlement(m.id, latlng.lat, latlng.lng)}
       />
 
       <Modal open={!!draft} onClose={() => setDraft(null)} title="יישוב חדש">
