@@ -1,41 +1,29 @@
 import { useState, useMemo, useEffect } from 'react'
-import { motion } from 'framer-motion'
-import { MEDIA_ICONS } from '../ui/Icons.jsx'
-import { imageSrc } from '../../data/media.js'
+import { motion, AnimatePresence } from 'framer-motion'
+import { MEDIA_ICONS, IconChevron, IconChevronLeft, IconTrash, IconHeart, IconHeartFilled, IconEdit } from '../ui/Icons.jsx'
+import { imageSrc, videoEmbed } from '../../data/media.js'
 import MediaLightbox, { canOpenLightbox } from '../Media/MediaLightbox.jsx'
-import { toggleMediaHeart } from '../../data/store.js'
-import { useSession } from '../../data/session.js'
-import { relativeTimeline, formatWhenDisplay, itemSortMs } from '../../data/when.js'
+import { toggleMediaHeart, deleteMedia } from '../../data/store.js'
+import { useSession, canModerate, canEditOwned } from '../../data/session.js'
+import { groupMomentsEven, itemSortMs } from '../../data/when.js'
 
-// Relative open-arc clock for expulsion moments: earliest → latest across
-// whatever date/time span residents document (not locked to a single 24h day).
+// Kan 7.10–style dial: moments spaced evenly by count (not real duration),
+// media shown beside the dial; each moment can hold several media items.
 
-const SIZE = 340
+const SIZE = 380
 const CX = SIZE / 2
 const CY = SIZE / 2
-const R = 132
-/** Degrees swept by the timeline (leave a gap so start ≠ end). */
-const SWEEP = 300
-const START_DEG = -90 - SWEEP / 2 // centered gap at the bottom
+const R = 148
 
-function pointOnArc(frac, r, cx, cy) {
-  const angle = START_DEG + frac * SWEEP
+function pointOnCircle(frac, r, cx, cy) {
+  // frac 0 → top; increases clockwise
+  const angle = -90 + frac * 360
   const rad = (angle * Math.PI) / 180
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad), angle }
 }
 
-function describeArcFrac(cx, cy, r, f1, f2) {
-  if (f2 < f1) return ''
-  const a1 = START_DEG + f1 * SWEEP
-  const a2 = START_DEG + f2 * SWEEP
-  const rad1 = (a1 * Math.PI) / 180
-  const rad2 = (a2 * Math.PI) / 180
-  const x1 = cx + r * Math.cos(rad1)
-  const y1 = cy + r * Math.sin(rad1)
-  const x2 = cx + r * Math.cos(rad2)
-  const y2 = cy + r * Math.sin(rad2)
-  const large = a2 - a1 > 180 ? 1 : 0
-  return `M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`
+function ringPath(cx, cy, r) {
+  return `M ${cx} ${cy - r} A ${r} ${r} 0 1 1 ${cx - 0.001} ${cy - r}`
 }
 
 function heartKey(session) {
@@ -45,115 +33,227 @@ function heartKey(session) {
   return null
 }
 
-export default function DayClock({ items, settlementId, poiId }) {
+function summaryText(moment) {
+  const first = moment?.items?.[0]
+  if (!first) return ''
+  return first.title || first.body || ''
+}
+
+export default function DayClock({ items, settlementId, poiId, onEditItem }) {
   const session = useSession()
   const key = heartKey(session)
-  const { sorted } = useMemo(() => relativeTimeline(items), [items])
+  const mod = canModerate(session.role)
+  const moments = useMemo(() => groupMomentsEven(items), [items])
 
-  const [selId, setSelId] = useState(sorted[0]?.id)
+  const [mi, setMi] = useState(0) // moment index
+  const [si, setSi] = useState(0) // media index within moment
   const [lbId, setLbId] = useState(null)
 
   useEffect(() => {
-    if (!sorted.find((s) => s.id === selId) && sorted[0]) setSelId(sorted[0].id)
-  }, [sorted, selId])
+    if (mi >= moments.length) setMi(Math.max(0, moments.length - 1))
+  }, [moments.length, mi])
 
-  const selected = sorted.find((s) => s.id === selId) || sorted[0]
+  useEffect(() => {
+    setSi(0)
+  }, [mi])
+
+  const moment = moments[mi] || null
+  const media = moment?.items?.[si] || moment?.items?.[0] || null
   const lbItem = items.find((m) => m.id === lbId)
 
-  if (sorted.length === 0) {
+  if (moments.length === 0) {
     return (
       <div className="clock-empty muted">
-        אין עדיין רגעים עם תאריך/שעה. הוסיפו פריט עם תאריך ושעה (לועזי או עברי) כדי שיופיע על המעגל היחסי — מהרגע המוקדם ביותר עד המאוחר ביותר.
+        אין עדיין רגעים עם תאריך/שעה. הוסיפו פריט עם תאריך ושעה כדי לבנות את המעגל — הרגעים מסודרים במרווחים שווים לפי מספר האירועים.
       </div>
     )
   }
 
   const noWhen = items.filter((it) => itemSortMs(it) == null)
-  const startLabel = formatWhenDisplay(sorted[0])
-  const endLabel = formatWhenDisplay(sorted[sorted.length - 1])
+
+  function goMoment(delta) {
+    setMi((i) => (i + delta + moments.length) % moments.length)
+  }
+
+  function selectMoment(i) {
+    setMi(i)
+  }
+
+  function heart() {
+    if (!key) {
+      window.dispatchEvent(new CustomEvent('gk:need-signin'))
+      return
+    }
+    if (!settlementId || !poiId || !media) return
+    toggleMediaHeart(settlementId, poiId, media.id, key)
+  }
+
+  const likedBy = media?.likedBy || []
+  const hearted = !!(key && likedBy.includes(key))
+  const canOwn = media && canEditOwned(session, media)
+  const embed = media ? videoEmbed(media) : null
 
   return (
     <div className="dayclock">
       <p className="muted dayclock-hint">
-        מעגל יחסי: מהרגע המוקדם עד המאוחר ביותר שתועדו סביב הגירוש
-        {sorted.length > 1 && startLabel && endLabel ? ` · ${startLabel} ← ${endLabel}` : ''}
+        הרגעים מסודרים במרווחים שווים סביב המעגל (לפי מספר האירועים). לחצו על נקודה — והתוכן יופיע בצד. לרגע עם כמה פריטים בחרו אייקון במרכז.
       </p>
-      <div className="dayclock-ring" style={{ width: SIZE, height: SIZE }}>
-        <svg width={SIZE} height={SIZE} className="dayclock-svg">
-          {/* tick marks along the open arc */}
-          {[0, 0.25, 0.5, 0.75, 1].map((f) => {
-            const p1 = pointOnArc(f, R + 8, CX, CY)
-            const p2 = pointOnArc(f, R + (f === 0 || f === 1 ? 18 : 13), CX, CY)
-            return (
-              <line
-                key={f}
-                x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y}
-                stroke={f === 0 || f === 1 ? 'var(--amber-500)' : 'var(--sand-300)'}
-                strokeWidth={f === 0 || f === 1 ? 2 : 1.2}
-              />
-            )
-          })}
-          <path
-            d={describeArcFrac(CX, CY, R, 0, 1)}
-            fill="none"
-            stroke="var(--sand-300)"
-            strokeWidth="1.5"
-            strokeDasharray="2 6"
-          />
-          {selected && (
-            <path
-              d={describeArcFrac(CX, CY, R, 0, selected.frac)}
-              fill="none"
-              stroke="var(--orange-500)"
-              strokeWidth="3"
-              strokeLinecap="round"
-            />
-          )}
-          {sorted.map((it) => {
-            const p = pointOnArc(it.frac, R, CX, CY)
-            const active = it.id === selected?.id
-            return (
-              <g key={it.id} onClick={() => setSelId(it.id)} style={{ cursor: 'pointer' }}>
-                <circle cx={p.x} cy={p.y} r={active ? 9 : 6} fill={active ? 'var(--orange-600)' : 'var(--amber-500)'} stroke="#fff" strokeWidth="2" />
-              </g>
-            )
-          })}
-        </svg>
 
-        {[
-          { f: 0, t: startLabel },
-          { f: 1, t: endLabel },
-        ].map((q, i) => {
-          const p = pointOnArc(q.f, R + 36, CX, CY)
-          return (
-            <span key={i} className="clock-quarter clock-endpoint" style={{ left: p.x, top: p.y }} title={q.t}>
-              {q.t}
-            </span>
-          )
-        })}
+      <div className="dayclock-stage">
+        {/* Dial — in RTL appears on the right (start) */}
+        <div className="dayclock-dial-col">
+          <button type="button" className="clock-nav clock-nav-prev" onClick={() => goMoment(-1)} title="רגע קודם" aria-label="רגע קודם">
+            <IconChevron width={22} height={22} />
+          </button>
 
-        <motion.div className="clock-center" key={selected?.id} initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.25 }}>
-          <div className="clock-time">{formatWhenDisplay(selected)}</div>
-          {selected?.title && <div className="clock-title">{selected.title}</div>}
-          <div className="clock-body">{selected?.body}</div>
-          {selected?.type === 'photo' && (selected?.url || selected?.driveId) && (
-            <button type="button" className="media-thumb" onClick={() => setLbId(selected.id)} title="הגדלה">
-              <img className="clock-img" src={imageSrc(selected)} alt={selected.title || ''} />
-            </button>
-          )}
-        </motion.div>
-      </div>
+          <div className="dayclock-ring" style={{ width: SIZE, height: SIZE }}>
+            <svg width={SIZE} height={SIZE} className="dayclock-svg" aria-hidden>
+              <circle cx={CX} cy={CY} r={R + 10} fill="none" stroke="var(--sand-200)" strokeWidth="18" />
+              <path d={ringPath(CX, CY, R)} fill="none" stroke="var(--orange-500)" strokeWidth="3.5" strokeLinecap="round" />
+              {moments.map((m) => {
+                const p = pointOnCircle(m.frac, R, CX, CY)
+                const active = m.index === mi
+                return (
+                  <g key={m.key} onClick={() => selectMoment(m.index)} style={{ cursor: 'pointer' }}>
+                    <circle
+                      cx={p.x} cy={p.y}
+                      r={active ? 11 : 7}
+                      fill={active ? 'var(--orange-600)' : 'var(--amber-500)'}
+                      stroke="#fff"
+                      strokeWidth={active ? 3 : 2}
+                    />
+                    {active && (
+                      <circle cx={p.x} cy={p.y} r={16} fill="none" stroke="var(--orange-500)" strokeWidth="1.5" opacity="0.55" />
+                    )}
+                  </g>
+                )
+              })}
+            </svg>
 
-      <div className="clock-list row wrap gap-6">
-        {sorted.map((it) => {
-          const Icon = MEDIA_ICONS[it.type] || MEDIA_ICONS.text
-          return (
-            <button key={it.id} className={`pill sm ${it.id === selected?.id ? 'is-active' : 'ghost'}`} onClick={() => setSelId(it.id)}>
-              <Icon width={13} height={13} />
-              {formatWhenDisplay(it)}
-            </button>
-          )
-        })}
+            {moments.map((m) => {
+              const p = pointOnCircle(m.frac, R + 34, CX, CY)
+              const active = m.index === mi
+              return (
+                <button
+                  key={`lbl-${m.key}`}
+                  type="button"
+                  className={`clock-tick-label ${active ? 'is-active' : ''}`}
+                  style={{ left: p.x, top: p.y }}
+                  onClick={() => selectMoment(m.index)}
+                >
+                  {m.label}
+                </button>
+              )
+            })}
+
+            <div className="clock-center">
+              <div className="clock-time">{moment.label}</div>
+              <div className="clock-title">{summaryText(moment)}</div>
+              {moment.items.length > 1 && (
+                <div className="clock-media-dots row gap-6" style={{ justifyContent: 'center', marginTop: 10 }}>
+                  {moment.items.map((it, idx) => {
+                    const Icon = MEDIA_ICONS[it.type] || MEDIA_ICONS.text
+                    return (
+                      <button
+                        key={it.id}
+                        type="button"
+                        className={`clock-media-dot ${idx === si ? 'is-active' : ''}`}
+                        title={it.title || it.type}
+                        onClick={() => setSi(idx)}
+                      >
+                        <Icon width={16} height={16} />
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <button type="button" className="clock-nav clock-nav-next" onClick={() => goMoment(1)} title="רגע הבא" aria-label="רגע הבא">
+            <IconChevronLeft width={22} height={22} />
+          </button>
+        </div>
+
+        {/* Side media panel */}
+        <div className="dayclock-side">
+          <AnimatePresence mode="wait">
+            {media && (
+              <motion.div
+                key={media.id}
+                className="dayclock-side-card card"
+                initial={{ opacity: 0, x: -12 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 12 }}
+                transition={{ duration: 0.22 }}
+              >
+                <div className="row gap-8" style={{ alignItems: 'center', marginBottom: 8 }}>
+                  <span className="pill sm is-active">{moment.label}</span>
+                  {media.authorName && <span className="muted" style={{ fontSize: '0.78rem' }}>{media.authorName}</span>}
+                  <span className="grow" />
+                  {canOwn && onEditItem && (
+                    <button type="button" className="icon-btn" title="עריכה" onClick={() => onEditItem(media)}>
+                      <IconEdit width={14} height={14} />
+                    </button>
+                  )}
+                  {mod && (
+                    <button
+                      type="button"
+                      className="icon-btn danger"
+                      title="מחיקה"
+                      onClick={() => {
+                        if (confirm('למחוק את הפריט?')) deleteMedia(settlementId, poiId, media.id)
+                      }}
+                    >
+                      <IconTrash width={14} height={14} />
+                    </button>
+                  )}
+                </div>
+
+                {media.title && <h3 className="dayclock-side-title">{media.title}</h3>}
+
+                {media.type === 'photo' && (media.url || media.driveId) && (
+                  <button type="button" className="media-thumb" onClick={() => canOpenLightbox(media) && setLbId(media.id)}>
+                    <img className="dayclock-side-img" src={imageSrc(media)} alt={media.title || ''} />
+                  </button>
+                )}
+
+                {media.type === 'video' && (media.url || media.driveId) && (
+                  embed
+                    ? (
+                      <iframe
+                        className="dayclock-side-embed"
+                        src={embed}
+                        title={media.title || 'video'}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                        referrerPolicy="strict-origin-when-cross-origin"
+                      />
+                    )
+                    : <video className="dayclock-side-img" src={media.url} controls />
+                )}
+
+                {media.type === 'document' && (media.url || media.driveId) && (
+                  <button type="button" className="pill ghost" onClick={() => setLbId(media.id)}>פתיחת מסמך</button>
+                )}
+
+                {media.body && <p className="dayclock-side-body">{media.body}</p>}
+
+                <div className="row gap-8" style={{ marginTop: 12, alignItems: 'center' }}>
+                  <button type="button" className={`heart-btn ${hearted ? 'is-on' : ''}`} onClick={heart}>
+                    {hearted ? <IconHeartFilled width={15} height={15} /> : <IconHeart width={15} height={15} />}
+                    <span>{likedBy.length || ''}</span>
+                  </button>
+                  {moment.items.length > 1 && (
+                    <span className="muted" style={{ fontSize: '0.78rem' }}>
+                      פריט {si + 1} מתוך {moment.items.length} ברגע זה
+                    </span>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       {noWhen.length > 0 && (
@@ -163,7 +263,7 @@ export default function DayClock({ items, settlementId, poiId }) {
       )}
 
       <MediaLightbox
-        items={items.filter(canOpenLightbox)}
+        items={(moment?.items || []).filter(canOpenLightbox)}
         currentId={lbId}
         onClose={() => setLbId(null)}
         onNavigate={setLbId}

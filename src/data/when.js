@@ -83,26 +83,44 @@ export function formatWhenDisplay(item) {
 }
 
 /**
- * Map items onto a relative open arc (earliest → latest).
- * Returns { sorted, minMs, maxMs, spanMs } with each item getting .sortMs and .frac (0..1).
+ * Group timed items into moments (same date+time), sorted chronologically,
+ * then assign even fractions around the circle (by event count, not duration).
  */
-export function relativeTimeline(items) {
-  const withMs = (items || [])
+export function groupMomentsEven(items) {
+  const timed = (items || [])
     .map((it) => ({ ...it, sortMs: itemSortMs(it) }))
     .filter((it) => it.sortMs != null)
     .sort((a, b) => a.sortMs - b.sortMs || String(a.id).localeCompare(String(b.id)))
 
-  if (withMs.length === 0) return { sorted: [], minMs: 0, maxMs: 0, spanMs: 1 }
+  const map = new Map()
+  for (const it of timed) {
+    const key = [
+      it.dateGregorian || '',
+      (it.timeLabel || '').trim(),
+      it.approximate ? '~' : '',
+      // bucket to the minute so near-identical whenMs still merge
+      Math.round(it.sortMs / 60000),
+    ].join('|')
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        sortMs: it.sortMs,
+        label: formatWhenDisplay(it),
+        approximate: !!it.approximate,
+        items: [],
+      })
+    }
+    map.get(key).items.push(it)
+  }
 
-  const minMs = withMs[0].sortMs
-  const maxMs = withMs[withMs.length - 1].sortMs
-  const spanMs = Math.max(maxMs - minMs, 1)
-  const sorted = withMs.map((it, i, arr) => {
-    let frac = (it.sortMs - minMs) / spanMs
-    if (arr.length === 1) frac = 0.5
-    return { ...it, frac }
+  const moments = [...map.values()]
+  const n = moments.length
+  moments.forEach((m, i) => {
+    // Even slots around a full circle (Kan-style): first at top, then clockwise.
+    m.index = i
+    m.frac = n <= 1 ? 0 : i / n
   })
-  return { sorted, minMs, maxMs, spanMs }
+  return moments
 }
 
 /** Build fields to store on a media item from the when form. */

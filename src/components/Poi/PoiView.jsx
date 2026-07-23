@@ -6,13 +6,13 @@ import { useSession, canEdit, canModerate, canEditOwned, authorKey } from '../..
 import { IconPlus, IconEdit, IconTrash } from '../ui/Icons.jsx'
 import Modal from '../ui/Modal.jsx'
 import Breadcrumbs from '../ui/Breadcrumbs.jsx'
-import MediaCard from '../Media/MediaCard.jsx'
+import MediaCard, { MediaEditModal } from '../Media/MediaCard.jsx'
 import MediaUploader from '../Media/MediaUploader.jsx'
 import DayClock from './DayClock.jsx'
 
 const PHASES = [
   { key: 'before', label: 'לפני הגירוש', hint: 'איך נראו החיים כאן' },
-  { key: 'during', label: 'מסביב לשעון', hint: 'רגעי הגירוש — מעגל יחסי מתאריך מוקדם למאוחר' },
+  { key: 'during', label: 'מסביב לשעון', hint: 'רגעי הגירוש על מעגל — מרווחים שווים, תוכן בצד' },
   { key: 'after', label: 'אחרי הגירוש', hint: 'הדרך עד לבית קבע' },
 ]
 
@@ -28,6 +28,7 @@ export default function PoiView() {
   const [uploadOpen, setUploadOpen] = useState(false)
   const [afterOpen, setAfterOpen] = useState(false)
   const [editAfter, setEditAfter] = useState(null) // entry being edited
+  const [editMedia, setEditMedia] = useState(null)
 
   if (!s || !poi) return <div className="page-pad">הנקודה לא נמצאה. <button className="pill ghost" onClick={() => navigate('/')}>למפה</button></div>
 
@@ -60,10 +61,13 @@ export default function PoiView() {
           )}
 
           {phase === 'during' && (
-            <PhaseBlock title="מסביב לשעון — יום הגירוש" editor={editor} onAdd={() => setUploadOpen(true)} addLabel="הוספת רגע">
-              <DayClock items={poi.during || []} settlementId={s.id} poiId={poi.id} />
-              <div className="divider" />
-              <MediaGrid items={poi.during || []} mod={mod} session={session} onDelete={(m) => deleteMedia(s.id, poi.id, m)} settlementId={s.id} poiId={poi.id} empty="הוסיפו רגעים עם תאריך ושעה כדי לבנות את המעגל היחסי סביב הגירוש." />
+            <PhaseBlock title="מסביב לשעון — סביב הגירוש" editor={editor} onAdd={() => setUploadOpen(true)} addLabel="הוספת רגע">
+              <DayClock
+                items={poi.during || []}
+                settlementId={s.id}
+                poiId={poi.id}
+                onEditItem={setEditMedia}
+              />
             </PhaseBlock>
           )}
 
@@ -101,6 +105,14 @@ export default function PoiView() {
         poiId={poi.id}
         session={session}
         entry={editAfter}
+      />
+
+      <MediaEditModal
+        open={!!editMedia}
+        onClose={() => setEditMedia(null)}
+        item={editMedia}
+        settlementId={s.id}
+        poiId={poi.id}
       />
     </motion.div>
   )

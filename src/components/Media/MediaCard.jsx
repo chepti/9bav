@@ -154,7 +154,7 @@ export default function MediaCard({
   )
 }
 
-function MediaEditModal({ open, onClose, item, settlementId, poiId }) {
+export function MediaEditModal({ open, onClose, item, settlementId, poiId }) {
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [dateGregorian, setDateGregorian] = useState('')
