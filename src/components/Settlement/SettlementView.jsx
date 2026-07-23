@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { getSettlement, setInfoSection, updateSettlementMeta, addPoi, movePoi } from '../../data/store.js'
+import { getSettlement, setInfoSection, updateSettlementMeta, addPoi, movePoi, deletePoi, deleteSettlement } from '../../data/store.js'
 import { useStore } from '../../data/store.js'
 import { useSession, canEdit, canModerate } from '../../data/session.js'
-import { SECTION_ICONS, IconPin, IconEdit } from '../ui/Icons.jsx'
+import { SECTION_ICONS, IconPin, IconEdit, IconTrash } from '../ui/Icons.jsx'
 import Modal from '../ui/Modal.jsx'
 import Breadcrumbs from '../ui/Breadcrumbs.jsx'
 import LeafletMap from '../Map/LeafletMap.jsx'
@@ -29,6 +29,7 @@ export default function SettlementView() {
   const [tab, setTab] = useState('general')
   const [editMeta, setEditMeta] = useState(false)
   const [pinMode, setPinMode] = useState(false)
+  const [moveMode, setMoveMode] = useState(false)
   const [poiDraft, setPoiDraft] = useState(null)
   const [poiTitle, setPoiTitle] = useState('')
 
@@ -82,25 +83,27 @@ export default function SettlementView() {
         </div>
 
         <div className="closeup-col">
-          <div className="closeup-head row">
+          <div className="closeup-head row wrap gap-6">
             <h3>נקודות עניין</h3>
             <span className="grow" />
             {editor && (
-              <button className={`pill ${pinMode ? 'is-active' : 'ghost'}`} onClick={() => setPinMode((v) => !v)}>
+              <button className={`pill ${pinMode ? 'is-active' : 'ghost'}`} onClick={() => { setPinMode((v) => !v); setMoveMode(false) }}>
                 <IconPin width={14} height={14} /> {pinMode ? 'בחרו מיקום…' : 'הוספת נקודה'}
               </button>
             )}
+            {mod && s.pois.length > 0 && (
+              <button className={`pill ${moveMode ? 'is-active' : 'ghost'}`} onClick={() => { setMoveMode((v) => !v); setPinMode(false) }}>
+                <IconEdit width={14} height={14} /> {moveMode ? 'גררו נקודה ושחררו' : 'הזזה'}
+              </button>
+            )}
           </div>
-          {editor && s.pois.length > 0 && (
-            <p className="muted" style={{ fontSize: '0.8rem', margin: '0 0 8px' }}>ניתן לגרור נקודה קיימת כדי להזיז אותה</p>
-          )}
           <LeafletMap
             className="closeup-map"
             closeup
             center={{ lat: s.lat, lng: s.lng, zoom: 16 }}
             markers={s.pois.map((p) => ({ id: p.id, lat: p.lat, lng: p.lng, label: p.title, kind: 'poi' }))}
             pinMode={pinMode}
-            draggableMarkers={editor}
+            draggableMarkers={moveMode}
             onMarkerClick={(m) => navigate(`/poi/${s.id}/${m.id}`)}
             onMapClick={(latlng) => setPoiDraft({ lat: latlng.lat, lng: latlng.lng })}
             onMarkerMove={(m, latlng) => movePoi(s.id, m.id, latlng.lat, latlng.lng)}
@@ -113,12 +116,18 @@ export default function SettlementView() {
             <div className="poi-list stack gap-8">
               <AnimatePresence>
                 {s.pois.map((p) => (
-                  <motion.button key={p.id} className="poi-list-item" onClick={() => navigate(`/poi/${s.id}/${p.id}`)}
-                    initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }}>
-                    <IconPin width={15} height={15} />
-                    <strong>{p.title}</strong>
-                    <span className="muted">{p.authorName}</span>
-                  </motion.button>
+                  <motion.div key={p.id} className="poi-list-item" initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}>
+                    <button className="poi-list-open" onClick={() => navigate(`/poi/${s.id}/${p.id}`)}>
+                      <IconPin width={15} height={15} />
+                      <strong>{p.title}</strong>
+                      <span className="muted">{p.authorName}</span>
+                    </button>
+                    {mod && (
+                      <button className="icon-btn danger" title="מחיקת נקודה" onClick={() => { if (confirm(`למחוק את "${p.title}" וכל התכנים שבה?`)) deletePoi(s.id, p.id) }}>
+                        <IconTrash width={15} height={15} />
+                      </button>
+                    )}
+                  </motion.div>
                 ))}
               </AnimatePresence>
             </div>
@@ -174,6 +183,7 @@ function SectionBody({ settlementId, sectionKey, body, canEdit }) {
 }
 
 function EditMetaModal({ open, onClose, settlement }) {
+  const navigate = useNavigate()
   const [form, setForm] = useState({})
   const s = settlement
   const val = (k) => (form[k] !== undefined ? form[k] : s[k] ?? '')
@@ -190,6 +200,13 @@ function EditMetaModal({ open, onClose, settlement }) {
     onClose()
   }
 
+  function remove() {
+    if (!confirm(`למחוק את היישוב "${s.name}" על כל נקודות העניין והתכנים שבו? פעולה בלתי הפיכה.`)) return
+    deleteSettlement(s.id)
+    onClose()
+    navigate('/')
+  }
+
   return (
     <Modal open={open} onClose={onClose} title={`עריכת פרטי ${s.name}`}>
       <div className="stack gap-12">
@@ -199,7 +216,10 @@ function EditMetaModal({ open, onClose, settlement }) {
           <div style={{ flex: 1 }}><label className="lbl">שנת הקמה</label><input className="field" type="number" value={val('founded')} onChange={set('founded')} /></div>
         </div>
         <div><label className="lbl">לאן פונו</label><input className="field" value={val('evacuatedTo')} onChange={set('evacuatedTo')} /></div>
-        <div className="row" style={{ justifyContent: 'flex-end' }}><button className="btn btn-primary" onClick={save}>שמירה</button></div>
+        <div className="row" style={{ justifyContent: 'space-between' }}>
+          <button className="btn btn-soft danger-btn" onClick={remove}><IconTrash width={15} height={15} /> מחיקת יישוב</button>
+          <button className="btn btn-primary" onClick={save}>שמירה</button>
+        </div>
       </div>
     </Modal>
   )

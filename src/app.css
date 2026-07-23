@@ -348,14 +348,25 @@
 
 .poi-list { margin-top: 12px; }
 .poi-list-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 14px; border-radius: var(--radius-md);
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 8px 4px 4px; border-radius: var(--radius-md);
   background: var(--surface); border: 1px solid rgba(180,130,60,0.12);
-  cursor: pointer; text-align: right; color: var(--ink-700);
-  transition: transform 0.15s var(--ease), box-shadow 0.15s var(--ease);
+  transition: box-shadow 0.15s var(--ease);
 }
-.poi-list-item:hover { transform: translateX(-4px); box-shadow: var(--shadow-sm); }
-.poi-list-item .muted { margin-inline-start: auto; font-size: 0.8rem; }
+.poi-list-item:hover { box-shadow: var(--shadow-sm); }
+.poi-list-open {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border: none; background: none; cursor: pointer;
+  text-align: right; color: var(--ink-700); font: inherit;
+  border-radius: var(--radius-sm);
+  transition: transform 0.15s var(--ease);
+}
+.poi-list-open:hover { transform: translateX(-4px); }
+.poi-list-open .muted { margin-inline-start: auto; font-size: 0.8rem; }
+.icon-btn.danger:hover { background: #fbeaea; color: #d9534f; }
+.danger-btn { color: #c0392b; }
+.danger-btn:hover { background: #fbeaea; }
 
 /* ============ POI view ============ */
 .poi-hero { margin-bottom: 18px; }

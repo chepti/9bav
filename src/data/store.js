@@ -10,7 +10,7 @@
 import { useSyncExternalStore } from 'react'
 import { SETTLEMENTS as SEED } from './seed.js'
 import { isFirebaseConfigured, db } from './firebase.js'
-import { collection, doc, onSnapshot, setDoc, runTransaction, writeBatch } from 'firebase/firestore'
+import { collection, doc, onSnapshot, setDoc, deleteDoc, runTransaction, writeBatch } from 'firebase/firestore'
 
 const FB = isFirebaseConfigured
 const KEY = 'gk_state_v2'
@@ -132,6 +132,14 @@ export function addSettlement({ name, region, lat, lng }) {
 
 export function updateSettlementMeta(id, patch) {
   mutateSettlement(id, (s) => ({ ...s, ...patch }))
+}
+
+export function deleteSettlement(id) {
+  if (FB) {
+    return deleteDoc(doc(db, COL, id)).catch((e) => console.error('[gk] deleteSettlement failed', e))
+  }
+  state.settlements = state.settlements.filter((s) => s.id !== id)
+  emit()
 }
 
 export function moveSettlement(id, lat, lng) {

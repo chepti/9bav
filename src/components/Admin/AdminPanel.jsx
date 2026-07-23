@@ -2,9 +2,11 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Modal from '../ui/Modal.jsx'
 import { useRoles, addRole, removeRole } from '../../data/roles.js'
-import { useStore, getSettlements, setMediaStatus, deleteMedia } from '../../data/store.js'
+import { useStore, getSettlements, setMediaStatus, deleteMedia, deleteSettlement } from '../../data/store.js'
 import { useSession, isLiveAuth } from '../../data/session.js'
 import { MEDIA_ICONS, IconCheck, IconTrash, IconUser, IconPin } from '../ui/Icons.jsx'
+
+const REGION_LABEL = { gush_katif: 'גוש קטיף', northern_samaria: 'צפון השומרון' }
 
 export default function AdminPanel({ open, onClose }) {
   const [tab, setTab] = useState('queue')
@@ -14,12 +16,64 @@ export default function AdminPanel({ open, onClose }) {
         <button className={`pill ${tab === 'queue' ? 'is-active' : 'ghost'}`} onClick={() => setTab('queue')}>
           <IconCheck width={14} height={14} /> ממתין לאישור
         </button>
+        <button className={`pill ${tab === 'settlements' ? 'is-active' : 'ghost'}`} onClick={() => setTab('settlements')}>
+          <IconPin width={14} height={14} /> יישובים
+        </button>
         <button className={`pill ${tab === 'mods' ? 'is-active' : 'ghost'}`} onClick={() => setTab('mods')}>
           <IconUser width={14} height={14} /> מודרטורים
         </button>
       </div>
-      {tab === 'queue' ? <ModerationQueue onClose={onClose} /> : <Moderators />}
+      {tab === 'queue' && <ModerationQueue onClose={onClose} />}
+      {tab === 'settlements' && <SettlementsAdmin onClose={onClose} />}
+      {tab === 'mods' && <Moderators />}
     </Modal>
+  )
+}
+
+// ---------- Settlements: clean up duplicates / delete ----------
+function SettlementsAdmin({ onClose }) {
+  useStore()
+  const navigate = useNavigate()
+  const settlements = getSettlements()
+
+  const sorted = useMemo(
+    () => [...settlements].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'he')),
+    [settlements],
+  )
+
+  // Flag names that appear more than once so duplicates are easy to spot.
+  const dupNames = useMemo(() => {
+    const count = {}
+    settlements.forEach((s) => { count[s.name] = (count[s.name] || 0) + 1 })
+    return new Set(Object.keys(count).filter((n) => count[n] > 1))
+  }, [settlements])
+
+  return (
+    <div className="stack gap-8">
+      <p className="muted" style={{ fontSize: '0.86rem' }}>
+        {sorted.length} יישובים. שם שמופיע יותר מפעם אחת מסומן ככפילות.
+      </p>
+      {sorted.map((s) => (
+        <div key={s.id} className="queue-item">
+          <span className="media-type-badge"><IconPin width={14} height={14} /></span>
+          <div className="grow" style={{ minWidth: 0 }}>
+            <div className="row gap-6 wrap">
+              <strong>{s.name}</strong>
+              {dupNames.has(s.name) && <span className="pill sm pending-pill">כפילות</span>}
+            </div>
+            <span className="muted" style={{ fontSize: '0.78rem' }}>
+              {REGION_LABEL[s.region] || s.region} · {(s.pois || []).length} נקודות עניין
+            </span>
+          </div>
+          <div className="row gap-6">
+            <button className="pill sm ghost" onClick={() => { onClose(); navigate(`/settlement/${s.id}`) }}>פתח</button>
+            <button className="pill sm ghost danger" onClick={() => { if (confirm(`למחוק את "${s.name}" וכל התכנים שבו?`)) deleteSettlement(s.id) }}>
+              <IconTrash width={13} height={13} /> מחיקה
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }
 
