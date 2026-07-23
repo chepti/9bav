@@ -12,6 +12,7 @@ import { uploadToDrive, isDriveConfigured } from '../../data/drive.js'
 import Modal from '../ui/Modal.jsx'
 import Breadcrumbs from '../ui/Breadcrumbs.jsx'
 import ImageMap from '../Map/ImageMap.jsx'
+import MediaLightbox from '../Media/MediaLightbox.jsx'
 
 const SECTIONS = [
   { key: 'general', label: 'כללי' },
@@ -22,6 +23,15 @@ const SECTIONS = [
 ]
 
 const REGION_LABEL = { gush_katif: 'גוש קטיף', northern_samaria: 'צפון השומרון' }
+
+function countPoiItems(p) {
+  let n = (p.before || []).length + (p.during || []).length
+  for (const e of p.after || []) {
+    const mediaN = (e.media || []).length
+    n += mediaN > 0 ? mediaN : (e.title || e.description ? 1 : 0)
+  }
+  return n
+}
 
 function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -204,25 +214,30 @@ export default function SettlementView() {
           {s.pois.length > 0 && (
             <div className="poi-list stack gap-8">
               <AnimatePresence>
-                {s.pois.map((p) => (
-                  <motion.div key={p.id} className="poi-list-item" initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}>
-                    <button className="poi-list-open" onClick={() => navigate(`/poi/${s.id}/${p.id}`)}>
-                      <IconPin width={15} height={15} />
-                      <strong>{p.title}</strong>
-                      <span className="muted">{p.authorName}</span>
-                    </button>
-                    {mod && (
-                      <button className="icon-btn danger" title="מחיקת נקודה" onClick={() => { if (confirm(`למחוק את "${p.title}" וכל התכנים שבה?`)) deletePoi(s.id, p.id) }}>
-                        <IconTrash width={15} height={15} />
+                {s.pois.map((p) => {
+                  const n = countPoiItems(p)
+                  return (
+                    <motion.div key={p.id} className="poi-list-item" initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}>
+                      <button className="poi-list-open" onClick={() => navigate(`/poi/${s.id}/${p.id}`)} title={p.title}>
+                        <IconPin width={15} height={15} />
+                        <strong>{p.title}</strong>
+                        <span className={`poi-count ${n === 0 ? 'is-empty' : ''}`} title={`${n} פריטי מדיה`}>{n}</span>
                       </button>
-                    )}
-                  </motion.div>
-                ))}
+                      {mod && (
+                        <button className="icon-btn danger" title="מחיקת נקודה" onClick={() => { if (confirm(`למחוק את "${p.title}" וכל התכנים שבה?`)) deletePoi(s.id, p.id) }}>
+                          <IconTrash width={15} height={15} />
+                        </button>
+                      )}
+                    </motion.div>
+                  )
+                })}
               </AnimatePresence>
             </div>
           )}
         </div>
       </div>
+
+      <SettlementGallery gallery={s.gallery || []} settlementName={s.name} />
 
       <Modal open={!!poiDraft} onClose={() => setPoiDraft(null)} title="נקודת עניין חדשה">
         <div className="stack gap-12">
@@ -239,6 +254,53 @@ export default function SettlementView() {
 
       <EditMetaModal open={editMeta} onClose={() => setEditMeta(false)} settlement={s} />
     </motion.div>
+  )
+}
+
+function SettlementGallery({ gallery, settlementName }) {
+  const [lbId, setLbId] = useState(null)
+  if (!gallery?.length) return null
+
+  const items = gallery.map((g) => ({
+    id: g.id,
+    type: 'photo',
+    title: g.caption || settlementName,
+    url: g.url,
+    body: g.credit ? `קרדיט: ${g.credit}` : '',
+    authorName: g.credit || 'ויקיפדיה',
+  }))
+
+  return (
+    <section className="settlement-media card">
+      <div className="settlement-media-head">
+        <h2>מדיה מהיישוב</h2>
+        <span className="muted">תמונות מתוך ויקיפדיה וויקישיתוף</span>
+      </div>
+      <div className="wiki-gallery">
+        {gallery.map((g) => (
+          <button key={g.id} type="button" className="wiki-tile" onClick={() => setLbId(g.id)} title={g.caption || 'הגדלה'}>
+            <img src={g.thumb || g.url} alt={g.caption || settlementName} loading="lazy" />
+            {(g.caption || g.credit) && (
+              <figcaption>
+                {g.caption || ''}
+                {g.caption && g.credit ? ' · ' : ''}
+                {g.credit || ''}
+              </figcaption>
+            )}
+          </button>
+        ))}
+      </div>
+      <p className="muted settlement-gallery-credit">
+        מקור התמונות: ויקיפדיה / ויקישיתוף ·{' '}
+        <a href="https://he.wikipedia.org/" target="_blank" rel="noopener noreferrer">רישיון חופשי</a>
+      </p>
+      <MediaLightbox
+        items={items}
+        currentId={lbId}
+        onClose={() => setLbId(null)}
+        onNavigate={setLbId}
+      />
+    </section>
   )
 }
 
