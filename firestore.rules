@@ -1,0 +1,52 @@
+rules_version = '2';
+
+// Firestore security rules for the Gush Katif documentation project.
+//
+// Model note: settlements are stored as single documents with POIs/media
+// embedded. These rules keep reads public and restrict writes to signed-in
+// users (community-wiki style). For stronger moderation guarantees (e.g. only
+// moderators can flip a media item to "approved"), migrate media to a
+// subcollection and add field-level checks — see SETUP.md.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // CHANGE this to the site owner's email (also set VITE_OWNER_EMAIL).
+    function ownerEmail() {
+      return 'chepti@gmail.com';
+    }
+    function isOwner() {
+      return signedIn() && request.auth.token.email == ownerEmail();
+    }
+    function isModerator() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'moderator';
+    }
+
+    // Settlement documents (with embedded POIs + media)
+    match /settlements/{settlementId} {
+      allow read: if true;                 // public site
+      allow create, update: if signedIn(); // residents & moderators may contribute
+      allow delete: if isModerator();
+    }
+
+    // User profiles / roles
+    match /users/{uid} {
+      allow read: if signedIn();
+      // Self-create as 'resident'; only the owner may bootstrap as 'moderator'.
+      allow create: if signedIn() && request.auth.uid == uid
+        && (request.resource.data.role == 'resident'
+            || (request.resource.data.role == 'moderator' && isOwner()));
+      // Users may edit their own profile without changing their role; moderators
+      // (and the owner) may change anyone's role — this is how promotions happen.
+      allow update: if (signedIn() && request.auth.uid == uid
+                        && request.resource.data.role == resource.data.role)
+                    || isModerator() || isOwner();
+    }
+  }
+}

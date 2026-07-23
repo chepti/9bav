@@ -402,6 +402,7 @@
   background: var(--sand-200); color: var(--clay-700); flex: none;
 }
 .media-img { width: 100%; border-radius: 10px; margin: 6px 0; display: block; }
+.media-embed { width: 100%; aspect-ratio: 16 / 9; border: none; border-radius: 10px; margin: 6px 0; display: block; }
 .media-body { margin: 6px 0 0; line-height: 1.65; color: var(--ink-700); white-space: pre-wrap; }
 .pending-pill { background: var(--amber-400); color: #fff; }
 .pill.danger:hover { border-color: #d9534f; color: #d9534f; }

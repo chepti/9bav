@@ -1,14 +1,22 @@
-// Reactive data layer. Currently backed by localStorage; the exported API is
-// intentionally shaped like an async-friendly repository so it can be swapped
-// for a PHP + MySQL REST backend later without touching components.
+// Reactive data layer with two interchangeable backends:
+//   - Firebase/Firestore  (live, collaborative) when configured
+//   - localStorage         (offline prototype) otherwise
+//
+// Components never see the difference: they read from the in-memory `state`
+// cache via useStore()/selectors, and call the same mutation functions. In
+// Firestore mode the cache is fed by an onSnapshot listener and mutations are
+// transactional writes; the snapshot then refreshes the cache.
 
 import { useSyncExternalStore } from 'react'
 import { SETTLEMENTS as SEED } from './seed.js'
+import { isFirebaseConfigured, db } from './firebase.js'
+import { collection, doc, onSnapshot, setDoc, runTransaction, writeBatch } from 'firebase/firestore'
 
+const FB = isFirebaseConfigured
 const KEY = 'gk_state_v2'
+const COL = 'settlements'
 
-/** @returns {{settlements: import('./types.js').Settlement[]}} */
-function load() {
+function loadLocal() {
   try {
     const raw = localStorage.getItem(KEY)
     if (raw) return JSON.parse(raw)
@@ -18,10 +26,10 @@ function load() {
   return { settlements: structuredClone(SEED) }
 }
 
-let state = load()
+let state = FB ? { settlements: [], loading: true } : loadLocal()
 const listeners = new Set()
 
-function persist() {
+function persistLocal() {
   try {
     localStorage.setItem(KEY, JSON.stringify(state))
   } catch (e) {
@@ -29,10 +37,14 @@ function persist() {
   }
 }
 
-function emit() {
-  persist()
+function notify() {
   state = { ...state } // new reference so useSyncExternalStore fires
   listeners.forEach((l) => l())
+}
+
+function emit() {
+  if (!FB) persistLocal()
+  notify()
 }
 
 function subscribe(l) {
@@ -48,14 +60,40 @@ export function useStore() {
   return useSyncExternalStore(subscribe, getSnapshot)
 }
 
-// --- id helper (Math.random is fine at runtime in the browser) ---
+export function isLive() {
+  return FB
+}
+export function isLoading() {
+  return !!state.loading
+}
+
+// --- Firestore live subscription ---
+if (FB) {
+  onSnapshot(
+    collection(db, COL),
+    (snap) => {
+      const arr = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      arr.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'he'))
+      state = { settlements: arr, loading: false }
+      listeners.forEach((l) => l())
+    },
+    (err) => console.error('[gk] settlements snapshot error', err),
+  )
+}
+
+// --- id helper ---
 let counter = 0
 function uid(prefix = 'id') {
   counter += 1
   return `${prefix}-${Date.now().toString(36)}-${counter}-${Math.floor(Math.random() * 1e6).toString(36)}`
 }
 
-// --- selectors ---
+function stripId(obj) {
+  const { id, ...rest } = obj
+  return rest
+}
+
+// --- selectors (read the cache; identical in both modes) ---
 export function getSettlements() {
   return state.settlements
 }
@@ -63,26 +101,33 @@ export function getSettlement(id) {
   return state.settlements.find((s) => s.id === id)
 }
 
-// --- mutations ---
+// --- core mutation primitive ---
+// fn receives a fresh settlement object (with id + nested pois), mutates and
+// returns it. Local: map+emit. Firestore: transactional read-modify-write.
 function mutateSettlement(id, fn) {
+  if (FB) {
+    const ref = doc(db, COL, id)
+    return runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref)
+      if (!snap.exists()) return
+      const updated = fn({ id, ...snap.data() })
+      tx.set(ref, stripId(updated))
+    }).catch((e) => console.error('[gk] mutate failed', e))
+  }
   state.settlements = state.settlements.map((s) => (s.id === id ? fn(structuredClone(s)) : s))
   emit()
 }
 
 export function addSettlement({ name, region, lat, lng }) {
-  const s = {
-    id: uid('stl'),
-    name,
-    region,
-    lat,
-    lng,
-    moderators: [],
-    info: [],
-    pois: [],
+  const id = uid('stl')
+  const s = { id, name, region, lat, lng, moderators: [], info: [], pois: [] }
+  if (FB) {
+    setDoc(doc(db, COL, id), stripId(s)).catch((e) => console.error('[gk] addSettlement failed', e))
+  } else {
+    state.settlements = [...state.settlements, s]
+    emit()
   }
-  state.settlements = [...state.settlements, s]
-  emit()
-  return s.id
+  return id
 }
 
 export function updateSettlementMeta(id, patch) {
@@ -95,6 +140,7 @@ export function moveSettlement(id, lat, lng) {
 
 export function setInfoSection(settlementId, key, body) {
   mutateSettlement(settlementId, (s) => {
+    if (!Array.isArray(s.info)) s.info = []
     const existing = s.info.find((i) => i.key === key)
     if (existing) existing.body = body
     else s.info.push({ key, body, media: [] })
@@ -105,6 +151,7 @@ export function setInfoSection(settlementId, key, body) {
 export function addPoi(settlementId, { title, lat, lng, authorName }) {
   const poiId = uid('poi')
   mutateSettlement(settlementId, (s) => {
+    if (!Array.isArray(s.pois)) s.pois = []
     s.pois.push({
       id: poiId,
       settlementId,
@@ -141,8 +188,9 @@ export function deletePoi(settlementId, poiId) {
 
 /** phase: 'before' | 'during' | 'after' */
 export function addMedia(settlementId, poiId, phase, item) {
+  const mediaId = uid('m')
   const media = {
-    id: uid('m'),
+    id: mediaId,
     createdAt: Date.now(),
     status: 'pending',
     authorName: item.authorName || 'אנונימי',
@@ -152,7 +200,6 @@ export function addMedia(settlementId, poiId, phase, item) {
     const p = s.pois.find((p) => p.id === poiId)
     if (!p) return s
     if (phase === 'after') {
-      // "after" needs a dated entry; if none targeted, create a standalone one
       p.after.push({
         id: uid('d'),
         dateLabel: item.dateLabel || 'ללא תאריך',
@@ -165,7 +212,7 @@ export function addMedia(settlementId, poiId, phase, item) {
     }
     return s
   })
-  return media.id
+  return mediaId
 }
 
 export function addAfterEntry(settlementId, poiId, { dateLabel, title, description }) {
@@ -202,7 +249,14 @@ export function deleteMedia(settlementId, poiId, mediaId) {
   })
 }
 
+// Loads the seed settlements. Local: replaces cache. Firestore: writes the seed
+// docs (used once by an admin to populate an empty database).
 export function resetToSeed() {
+  if (FB) {
+    const batch = writeBatch(db)
+    SEED.forEach((s) => batch.set(doc(db, COL, s.id), stripId(structuredClone(s))))
+    return batch.commit().catch((e) => console.error('[gk] seed failed', e))
+  }
   state = { settlements: structuredClone(SEED) }
   emit()
 }

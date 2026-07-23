@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { HashRouter, Routes, Route, Link } from 'react-router-dom'
 import { useSession, signOut } from './data/session.js'
-import { resetToSeed } from './data/store.js'
+import { resetToSeed, isLive } from './data/store.js'
 import { IconUser, IconSeed } from './components/ui/Icons.jsx'
 import SignInModal from './components/Auth/SignInModal.jsx'
 import Home from './components/Home.jsx'
@@ -35,12 +35,24 @@ function Header({ onSignIn }) {
 }
 
 function Footer() {
+  const session = useSession()
+  const live = isLive()
+  // In live mode only a moderator can seed, and it writes to the shared DB.
+  const showSeed = live ? session.role === 'moderator' : true
+  const label = live ? 'טעינת יישובים ראשוניים' : 'איפוס הדגמה'
+  const confirmText = live
+    ? 'לכתוב את רשימת היישובים הראשונית למסד הנתונים המשותף? (פעולה חד־פעמית לאתחול)'
+    : 'לאפס את כל התוכן לנתוני ההדגמה?'
   return (
     <footer className="app-footer">
-      <span className="muted">פרויקט תיעוד קהילתי · אב־טיפוס</span>
-      <button className="pill ghost sm" onClick={() => { if (confirm('לאפס את כל התוכן לנתוני ההדגמה?')) resetToSeed() }}>
-        <IconSeed width={13} height={13} /> איפוס הדגמה
-      </button>
+      <span className="muted">
+        פרויקט תיעוד קהילתי · {live ? 'מערכת חיה' : 'מצב הדגמה מקומי'}
+      </span>
+      {showSeed && (
+        <button className="pill ghost sm" onClick={() => { if (confirm(confirmText)) resetToSeed() }}>
+          <IconSeed width={13} height={13} /> {label}
+        </button>
+      )}
     </footer>
   )
 }

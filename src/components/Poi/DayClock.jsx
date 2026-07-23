@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { MEDIA_ICONS } from '../ui/Icons.jsx'
+import { imageSrc } from '../../data/media.js'
 
 // Radial 24-hour clock for the day of expulsion. Each media item is placed
 // around the ring by its timeLabel; selecting one shows it in the center.
@@ -106,8 +107,8 @@ export default function DayClock({ items }) {
           </div>
           {selected?.title && <div className="clock-title">{selected.title}</div>}
           <div className="clock-body">{selected?.body}</div>
-          {selected?.url && selected?.type === 'photo' && (
-            <img className="clock-img" src={selected.url} alt={selected.title || ''} />
+          {selected?.type === 'photo' && (selected?.url || selected?.driveId) && (
+            <img className="clock-img" src={imageSrc(selected)} alt={selected.title || ''} />
           )}
         </motion.div>
       </div>

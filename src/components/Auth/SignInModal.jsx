@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import Modal from '../ui/Modal.jsx'
-import { signIn } from '../../data/session.js'
+import { signIn, signInGoogle, isLiveAuth } from '../../data/session.js'
 
 const ROLES = [
   { key: 'resident', label: 'תושב/ת שגורש/ה', desc: 'הוספת נקודות עניין, סיפורים ומדיה על הבית שלכם.' },
@@ -8,6 +8,44 @@ const ROLES = [
 ]
 
 export default function SignInModal({ open, onClose }) {
+  if (isLiveAuth()) return <GoogleSignIn open={open} onClose={onClose} />
+  return <LocalSignIn open={open} onClose={onClose} />
+}
+
+function GoogleSignIn({ open, onClose }) {
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  async function go() {
+    setBusy(true)
+    setErr('')
+    try {
+      await signInGoogle()
+      onClose()
+    } catch (e) {
+      setErr('הכניסה נכשלה. נסו שוב.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title="כניסה">
+      <div className="stack gap-16">
+        <p className="muted" style={{ fontSize: '0.92rem' }}>
+          התחברו כדי לנעוץ את הבית שלכם ולהוסיף סיפורים, תמונות ומסמכים.
+          התכנים שתוסיפו יופיעו לצד שמכם וימתינו לאישור מודרטור.
+        </p>
+        <button className="btn btn-primary" disabled={busy} onClick={go} style={{ justifyContent: 'center' }}>
+          {busy ? 'מתחבר…' : 'התחברות עם Google'}
+        </button>
+        {err && <p style={{ color: '#d9534f', fontSize: '0.85rem' }}>{err}</p>}
+      </div>
+    </Modal>
+  )
+}
+
+function LocalSignIn({ open, onClose }) {
   const [name, setName] = useState('')
   const [role, setRole] = useState('resident')
 
@@ -20,8 +58,7 @@ export default function SignInModal({ open, onClose }) {
     <Modal open={open} onClose={onClose} title="כניסה לעריכה">
       <div className="stack gap-16">
         <p className="muted" style={{ fontSize: '0.9rem' }}>
-          זהו אב־טיפוס. בגרסה החיה המודרטורים יאושרו מראש ותהיה כניסה מאובטחת.
-          כאן אפשר לבחור תפקיד כדי לנסות את הממשק.
+          מצב הדגמה מקומי. בחרו תפקיד כדי לנסות את הממשק (הנתונים נשמרים בדפדפן זה בלבד).
         </p>
         <div>
           <label className="lbl">השם שיוצג לצד התכנים</label>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { addMedia } from '../../data/store.js'
 import { useSession } from '../../data/session.js'
+import { uploadToDrive, isDriveConfigured } from '../../data/drive.js'
 import { MEDIA_ICONS } from '../ui/Icons.jsx'
 
 const TYPES = [
@@ -10,8 +11,6 @@ const TYPES = [
   { key: 'document', label: 'מסמך' },
 ]
 
-// Reads a File into a data-URL. For the local prototype this keeps everything
-// self-contained; a real backend would upload the File and store a URL.
 function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -26,45 +25,58 @@ export default function MediaUploader({ settlementId, poiId, phase, onDone }) {
   const [type, setType] = useState('text')
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
-  const [url, setUrl] = useState('')
-  const [fileName, setFileName] = useState('')
+  const [file, setFile] = useState(null)
   const [timeLabel, setTimeLabel] = useState('')
   const [approximate, setApproximate] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
 
-  async function onFile(e) {
-    const file = e.target.files?.[0]
-    if (!file) return
+  function onFile(e) {
+    const f = e.target.files?.[0]
+    if (!f) return
+    setFile(f)
+    if (!title) setTitle(f.name)
+  }
+
+  async function submit() {
     setBusy(true)
+    setErr('')
     try {
-      const dataUrl = await fileToDataUrl(file)
-      setUrl(dataUrl)
-      setFileName(file.name)
-      if (!title) setTitle(file.name)
+      const item = {
+        type,
+        title: title.trim(),
+        body: body.trim(),
+        authorName: session.name || 'אנונימי',
+      }
+      if (phase === 'during') {
+        item.timeLabel = timeLabel.trim() || undefined
+        item.approximate = approximate
+      }
+      if (type !== 'text' && file) {
+        if (isDriveConfigured) {
+          const up = await uploadToDrive(file)
+          item.url = up.url
+          item.driveId = up.id
+        } else {
+          // offline prototype: inline as data-URL
+          item.url = await fileToDataUrl(file)
+        }
+      }
+      addMedia(settlementId, poiId, phase, item)
+      onDone?.()
+    } catch (e) {
+      console.error(e)
+      setErr('ההעלאה נכשלה. נסו שוב, או קובץ קטן יותר.')
     } finally {
       setBusy(false)
     }
   }
 
-  function submit() {
-    const item = {
-      type,
-      title: title.trim(),
-      body: body.trim(),
-      url: url || undefined,
-      authorName: session.name || 'אנונימי',
-    }
-    if (phase === 'during') {
-      item.timeLabel = timeLabel.trim() || undefined
-      item.approximate = approximate
-    }
-    addMedia(settlementId, poiId, phase, item)
-    onDone?.()
-  }
-
   const needsFile = type === 'photo' || type === 'video' || type === 'document'
   const accept = type === 'photo' ? 'image/*' : type === 'video' ? 'video/*' : undefined
-  const valid = (type === 'text' ? body.trim().length > 0 : !!url) && (phase !== 'during' || timeLabel.trim().length > 0)
+  const valid =
+    (type === 'text' ? body.trim().length > 0 : !!file) &&
+    (phase !== 'during' || timeLabel.trim().length > 0)
 
   return (
     <div className="stack gap-16">
@@ -106,16 +118,18 @@ export default function MediaUploader({ settlementId, poiId, phase, onDone }) {
         <div>
           <label className="lbl">{needsFile ? 'קובץ' : 'קישור'}</label>
           <input type="file" accept={accept} onChange={onFile} />
-          {fileName && <p className="muted" style={{ fontSize: '0.8rem', marginTop: 6 }}>נבחר: {fileName}</p>}
+          {file && <p className="muted" style={{ fontSize: '0.8rem', marginTop: 6 }}>נבחר: {file.name} ({Math.round(file.size / 1024)} KB)</p>}
           <label className="lbl" style={{ marginTop: 10 }}>תיאור / כיתוב (רשות)</label>
           <textarea className="field" rows={2} value={body} onChange={(e) => setBody(e.target.value)} placeholder="כיתוב לתמונה / תיאור" />
         </div>
       )}
 
+      {err && <p style={{ color: '#d9534f', fontSize: '0.85rem' }}>{err}</p>}
+
       <div className="row gap-8" style={{ justifyContent: 'flex-end' }}>
-        <button className="btn btn-soft" onClick={onDone}>ביטול</button>
+        <button className="btn btn-soft" onClick={onDone} disabled={busy}>ביטול</button>
         <button className="btn btn-primary" disabled={!valid || busy} onClick={submit}>
-          {busy ? 'טוען…' : 'הוספה'}
+          {busy ? 'מעלה…' : 'הוספה'}
         </button>
       </div>
       <p className="muted" style={{ fontSize: '0.78rem' }}>

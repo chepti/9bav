@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { MEDIA_ICONS, IconCheck, IconTrash } from '../ui/Icons.jsx'
+import { imageSrc, videoEmbed, fileLink } from '../../data/media.js'
 
 // Renders one media item. Moderators see pending items (dimmed) with
 // approve / delete controls; guests only ever see approved items (filtered upstream).
@@ -23,10 +24,16 @@ export default function MediaCard({ item, canModerate, onApprove, onDelete, inde
         {item.authorName && <span className="muted" style={{ fontSize: '0.78rem' }}>{item.authorName}</span>}
       </div>
 
-      {item.type === 'photo' && item.url && <img className="media-img" src={item.url} alt={item.title || ''} />}
-      {item.type === 'video' && item.url && <video className="media-img" src={item.url} controls />}
-      {item.type === 'document' && item.url && (
-        <a className="pill ghost" href={item.url} download={item.title || 'document'}>הורדת מסמך</a>
+      {item.type === 'photo' && (item.url || item.driveId) && (
+        <img className="media-img" src={imageSrc(item)} alt={item.title || ''} loading="lazy" />
+      )}
+      {item.type === 'video' && (item.url || item.driveId) && (
+        videoEmbed(item)
+          ? <iframe className="media-embed" src={videoEmbed(item)} title={item.title || 'video'} allow="autoplay" allowFullScreen />
+          : <video className="media-img" src={item.url} controls />
+      )}
+      {item.type === 'document' && (item.url || item.driveId) && (
+        <a className="pill ghost" href={fileLink(item)} target="_blank" rel="noopener noreferrer">פתיחת מסמך</a>
       )}
       {item.body && <p className="media-body">{item.body}</p>}
 
